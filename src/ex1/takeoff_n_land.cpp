@@ -6,6 +6,7 @@
 
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseArray.h>
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/CommandTOL.h>
 #include <mavros_msgs/SetMode.h>
@@ -18,6 +19,11 @@ void state_cb(const mavros_msgs::State::ConstPtr& msg){
     current_state = *msg;
 }
 
+geometry_msgs::PoseArray current_pose;
+void pose_cb(const geometry_msgs::PoseArray::ConstPtr& msg){
+    current_pose = *msg;
+}
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "offb_node");
@@ -25,6 +31,8 @@ int main(int argc, char **argv)
 
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>
             ("mavros/state", 10, state_cb);
+    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseArray>
+            ("whycon/poses", 10, pose_cb);
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>
             ("mavros/setpoint_position/local", 10);
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>
@@ -95,36 +103,46 @@ int main(int argc, char **argv)
         rate.sleep();
     }
 
-    // go to the first waypoint
+    // Take off
     pose.pose.position.x = 0;
     pose.pose.position.y = 0;
     pose.pose.position.z = FLIGHT_ALTITUDE;
 
-    ROS_INFO("going to the first way point");
+    ROS_INFO("Taking off");
     for(int i = 0; ros::ok() && i < 10*20; ++i){
       local_pos_pub.publish(pose);
       ros::spinOnce();
       rate.sleep();
     }
-    ROS_INFO("first way point finished!");
+    ROS_INFO("Takeoff finished! Looking for whycon marker");
 
-
-    // go to the second waypoint
-    pose.pose.position.x = 0;
-    pose.pose.position.y = 1;
-    pose.pose.position.z = FLIGHT_ALTITUDE;
+    for(int i = 0; ros::ok() && i < 10*20; ++i){
+      if (ros::Time::now() - current_pose.header.stamp < ros::Duration(5.0)) {
+        ROS_INFO("Marker found, going there");
+        // go towards the marker
+        pose.pose.position.x += current_pose.poses[0].position.z - 1;
+        pose.pose.position.y -= current_pose.poses[0].position.x;
+        pose.pose.position.z -= current_pose.poses[0].position.y;
+        break;
+      }
+      else
+        ROS_INFO("No marker was found in the last 5 seconds");
+      local_pos_pub.publish(pose);
+      ros::spinOnce();
+      rate.sleep();
+    }
 
     //send setpoints for 10 seconds
-    ROS_INFO("going to second way point");
+    ROS_INFO("Going towards the marker");
     for(int i = 0; ros::ok() && i < 10*20; ++i){
 
       local_pos_pub.publish(pose);
       ros::spinOnce();
       rate.sleep();
     }
-    ROS_INFO("second way point finished!");
+    ROS_INFO("Marker approached!");
 
-    // go to the third waypoint
+    /*// go to the third waypoint
     pose.pose.position.x = 1;
     pose.pose.position.y = 1;
     pose.pose.position.z = FLIGHT_ALTITUDE;
@@ -162,7 +180,7 @@ int main(int argc, char **argv)
       local_pos_pub.publish(pose);
       ros::spinOnce();
       rate.sleep();
-    }
+    }*/
 
     ROS_INFO("tring to land");
     while (!(land_client.call(land_cmd) &&
