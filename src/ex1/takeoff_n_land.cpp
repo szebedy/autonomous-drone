@@ -120,7 +120,7 @@ int main(int argc, char **argv)
       if (ros::Time::now() - current_pose.header.stamp < ros::Duration(5.0)) {
         ROS_INFO("Marker found, going there");
         // go towards the marker
-        pose.pose.position.x += current_pose.poses[0].position.z - 1;
+        pose.pose.position.x += current_pose.poses[0].position.z - 0.5;
         pose.pose.position.y -= current_pose.poses[0].position.x;
         pose.pose.position.z -= current_pose.poses[0].position.y;
         break;
