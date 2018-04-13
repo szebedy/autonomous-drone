@@ -1,0 +1,7 @@
+<library path="lib/libwhycon_nodelet">
+  <class name="whycon/WhyconNodelet" type="whycon::WhyconNodelet" base_class_type="nodelet::Nodelet">
+  <description>
+  WhyCon nodelet
+  </description>
+  </class>
+</library>

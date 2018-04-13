@@ -1,0 +1,13 @@
+<launch>
+  <node pkg="whycon" type="whycon" name="whycon" output="screen">
+    <remap from="/whycon/input" to="/camera/image_rect_color"/>
+    <remap from="/whycon/camera_info" to="/camera/camera_info"/>
+    <param name="targets" value="1"/> 
+    <param name="max_refine" value="5"/>
+    <param name="max_attempts" value="5"/>
+    <param name="outer_diameter" value="0.2"/>
+    <param name="inner_diameter" value="0.1"/>
+    <param name="axis" value="vrep"/>
+  </node>
+</launch>
+  

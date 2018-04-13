@@ -1,0 +1,21 @@
+before_script:
+   - /prepare.sh
+
+indigo_build:
+  tags:
+    - ros-indigo
+  script:
+    - /build.sh
+
+indigo_opencv3_build:
+  tags:
+    - ros-indigo
+  script:
+    - apt-get install -y ros-indigo-opencv3
+    - /build.sh
+
+kinetic_build:
+  tags:
+    - ros-kinetic
+  script:
+    - /build.sh

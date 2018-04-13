@@ -1,0 +1,17 @@
+<launch>
+   <node name="whycon" type="whycon" pkg="whycon" _launch-prefix="konsole --new-tab -e bash /home/v01d/misc/scripts/ros-debug" output="screen">
+    <param name="axis" value="test"/>
+    <param name="targets" value="3"/>
+    <param name="max_refine" value="5"/>
+    <param name="max_attempts" value="5"/>
+    <param name="outer_diameter" value="0.118"/>
+    <param name="inner_diameter" value="0.048"/>
+    <param name="yscale" value="1.90"/>
+    <param name="xscale" value="1.50"/>
+  </node>
+
+  <node name="robot_pose_publisher" type="robot_pose_publisher" pkg="whycon" />
+
+  <!-- publish a transform between your robot's base link and the target pose -->
+  <node pkg="tf" type="static_transform_publisher" name="static_pose" args="0.05 0.02 0 3.14159265358979323846 0 0 target base_link 100"/>
+</launch>

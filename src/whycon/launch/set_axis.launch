@@ -1,0 +1,10 @@
+<launch>
+  <arg name="xscale" default="1.0"/>
+  <arg name="yscale" default="1.0"/>
+
+  <node name="set_axis" type="set_axis" pkg="whycon" output="screen">
+    <param name="xscale" value="$(arg xscale)"/>
+    <param name="yscale" value="$(arg yscale)"/>
+  </node>
+</launch>
+  
