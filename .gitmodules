@@ -1,3 +1,4 @@
 [submodule "src/whycon"]
 	path = src/whycon
 	url = https://github.com/lrse/whycon.git
+	branch = master
