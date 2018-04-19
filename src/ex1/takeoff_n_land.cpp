@@ -116,30 +116,34 @@ int main(int argc, char **argv)
     }
     ROS_INFO("Takeoff finished! Looking for whycon marker");
 
-    for(int i = 0; ros::ok() && i < 10*20; ++i){
+    for(int j = 0; ros::ok() && j < 10; ++j){
       if (ros::Time::now() - current_pose.header.stamp < ros::Duration(5.0)) {
-        ROS_INFO("Marker found, going there");
+        ROS_INFO("Marker found, approaching");
+        if (current_pose.poses[0].position.z < 1) {
+          if (current_pose.poses[0].position.z < 0.6) {
+            ROS_INFO("Close enough");
+            break;
+          }
+          ROS_INFO("Close enough, last move");
+          j = 10;
+        }
         // go towards the marker
-        pose.pose.position.x += current_pose.poses[0].position.z - 0.5;
+        pose.pose.position.x += current_pose.poses[0].position.z/2;
         pose.pose.position.y -= current_pose.poses[0].position.x;
         pose.pose.position.z -= current_pose.poses[0].position.y;
-        break;
+        //send setpoint for 5 seconds
+        for(int i = 0; ros::ok() && i < 5*20; ++i){
+          local_pos_pub.publish(pose);
+          ros::spinOnce();
+          rate.sleep();
+        }
       }
       else
         ROS_INFO("No marker was found in the last 5 seconds");
-      local_pos_pub.publish(pose);
-      ros::spinOnce();
-      rate.sleep();
+        ros::spinOnce();
+        rate.sleep();
     }
 
-    //send setpoints for 10 seconds
-    ROS_INFO("Going towards the marker");
-    for(int i = 0; ros::ok() && i < 10*20; ++i){
-
-      local_pos_pub.publish(pose);
-      ros::spinOnce();
-      rate.sleep();
-    }
     ROS_INFO("Marker approached!");
 
     /*// go to the third waypoint
@@ -182,11 +186,11 @@ int main(int argc, char **argv)
       rate.sleep();
     }*/
 
-    ROS_INFO("tring to land");
+    ROS_INFO("Tring to land");
     while (!(land_client.call(land_cmd) &&
             land_cmd.response.success)){
       //local_pos_pub.publish(pose);
-      ROS_INFO("tring to land");
+      ROS_INFO("Tring to land");
       ros::spinOnce();
       rate.sleep();
     }
