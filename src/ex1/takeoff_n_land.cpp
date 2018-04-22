@@ -13,9 +13,12 @@
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/PositionTarget.h>
 #include <tf/tf.h>
+#include <tf/transform_datatypes.h>
 #include <math.h>
 
 #define FLIGHT_ALTITUDE 1.5f
+
+#define ROS_RATE 20.0
 
 ros::Subscriber state_sub;
 ros::Subscriber pose_sub;
@@ -41,13 +44,13 @@ void state_cb(const mavros_msgs::State::ConstPtr& msg){
     current_state = *msg;
 }
 
-geometry_msgs::PoseArray current_pose;
+geometry_msgs::PoseArray marker_pose;
 void pose_cb(const geometry_msgs::PoseArray::ConstPtr& msg){
-    current_pose = *msg;
+    marker_pose = *msg;
 }
 
 geometry_msgs::PoseStamped local_position;
-void position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
+void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     local_position = *msg;
 }
 
@@ -58,11 +61,11 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
 
     //the setpoint publishing rate MUST be faster than 2Hz
-    ros::Rate rate(20.0);
+    ros::Rate rate(ROS_RATE);
 
     state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
     pose_sub = nh.subscribe<geometry_msgs::PoseArray>("whycon/poses", 10, pose_cb);
-    local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 10, position_cb);
+    local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 10, local_position_cb);
 
     local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 10);
     setpoint_pub = nh.advertise<mavros_msgs::PositionTarget>("mavros/setpoint_raw/local", 10);
@@ -96,7 +99,7 @@ int main(int argc, char **argv)
 
 void offboardMode(){
     //the setpoint publishing rate MUST be faster than 2Hz
-    ros::Rate rate(20.0);
+    ros::Rate rate(ROS_RATE);
 
     pose_NED.pose.position.x = 0;
     pose_NED.pose.position.y = 0;
@@ -142,16 +145,16 @@ void offboardMode(){
 
 void takeOff(){
     //the setpoint publishing rate MUST be faster than 2Hz
-    ros::Rate rate(20.0);
+    ros::Rate rate(ROS_RATE);
 
     // Take off
-    pose_NED.pose.position.x = 0;
-    pose_NED.pose.position.y = 0;
+    pose_NED.pose.position.x = 1;
+    pose_NED.pose.position.y = 5;
     pose_NED.pose.position.z = FLIGHT_ALTITUDE;
-    //pose.pose.orientation = tf::createQuaternionMsgFromYaw(0.9f);
+    pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(-0.7f);
 
     ROS_INFO("Taking off");
-    for(int i = 0; ros::ok() && i < 3*20; ++i){
+    for(int i = 0; ros::ok() && i < 3 * ROS_RATE; ++i){
         local_pos_pub.publish(pose_NED);
         ros::spinOnce();
         rate.sleep();
@@ -162,40 +165,51 @@ void takeOff(){
 
 void turnTowardsMarker(){
     //the setpoint publishing rate MUST be faster than 2Hz
-    ros::Rate rate(20.0);
+    ros::Rate rate(ROS_RATE);
     float rad;
 
     mavros_msgs::PositionTarget setpoint;
 
-    for(int j = 0; ros::ok() && j < 10; ++j){
-        if (ros::Time::now() - current_pose.header.stamp < ros::Duration(5.0)) {
-            rad = -atan2f(current_pose.poses[0].position.x, current_pose.poses[0].position.z);
+    for(int j = 0; ros::ok() && j < 5 * ROS_RATE; ++j){
+        if (ros::Time::now() - marker_pose.header.stamp < ros::Duration(1.0)) {
+            //Calculate yaw angle difference of marker in radians
+            rad = -atan2f(marker_pose.poses[0].position.x, marker_pose.poses[0].position.z);
+            if (fabs(rad) < 0.03) {
+                ROS_INFO("Headed towards marker!");
+                break;
+            }
 
-            ROS_INFO("Marker found, x: %f, z: %f, turning %f radians", current_pose.poses[0].position.x, current_pose.poses[0].position.z, rad);
-            // turn towards the marker
-            pose_NED.pose.position.x = 0;
-            pose_NED.pose.position.y = 0;
-            pose_NED.pose.position.z = FLIGHT_ALTITUDE;
-            pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(rad);
+            //Calculate yaw current orientation
+            double roll, pitch, yaw;
+            tf::Quaternion q(local_position.pose.orientation.x,
+                             local_position.pose.orientation.y,
+                             local_position.pose.orientation.z,
+                             local_position.pose.orientation.w);
+            tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+
+            ROS_INFO("Marker found, current yaw: %f, turning %f radians", yaw, rad);
+            // turn towards the marker without change of position
+            //pose_NED.pose.position.x = local_position.pose.position.x;
+            //pose_NED.pose.position.y = local_position.pose.position.y;
+            //pose_NED.pose.position.z = local_position.pose.position.z;
+            pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(yaw+rad);
             //send setpoint for 5 seconds
-            for(int i = 0; ros::ok() && i < 5*20; ++i){
+            for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
                 local_pos_pub.publish(pose_NED);
                 ros::spinOnce();
                 rate.sleep();
             }
-            break;
         } else {
-            ROS_INFO("No marker was found in the last 5 seconds");
+            ROS_INFO("No marker was found in the last second");
             ros::spinOnce();
             rate.sleep();
         }
     }
-    ROS_INFO("Marker targeted!");
 }
 
 void approachMarker(){
     //the setpoint publishing rate MUST be faster than 2Hz
-    ros::Rate rate(20.0);
+    ros::Rate rate(ROS_RATE);
 
     mavros_msgs::PositionTarget setpoint;
 
@@ -223,7 +237,7 @@ void approachMarker(){
     setpoint.yaw_rate = 0.0f;
 
     ROS_INFO("Publishing FRAME_BODY_NED position");
-    for(int i = 0; ros::ok() && i < 10*20; ++i){
+    for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i){
         setpoint_pub.publish(setpoint);
         ros::spinOnce();
         rate.sleep();
@@ -231,14 +245,14 @@ void approachMarker(){
     ROS_INFO("Done waiting");
 
     /*for(int j = 0; ros::ok() && j < 10; ++j){
-      if (ros::Time::now() - current_pose.header.stamp < ros::Duration(5.0)) {
+      if (ros::Time::now() - marker_pose.header.stamp < ros::Duration(5.0)) {
         ROS_INFO("Marker found, approaching");
-        if (current_pose.poses[0].position.z < 2) {
+        if (marker_pose.poses[0].position.z < 2) {
           ROS_INFO("Changing orientation");
-          pose.pose.orientation = current_pose.poses[0].orientation;
+          pose.pose.orientation = marker_pose.poses[0].orientation;
         }
-        if (current_pose.poses[0].position.z < 1) {
-          if (current_pose.poses[0].position.z < 0.6) {
+        if (marker_pose.poses[0].position.z < 1) {
+          if (marker_pose.poses[0].position.z < 0.6) {
             ROS_INFO("Close enough");
             break;
           }
@@ -246,11 +260,11 @@ void approachMarker(){
           j = 10;
         }
         // go towards the marker
-        pose.pose.position.x += current_pose.poses[0].position.z/2;
-        pose.pose.position.y -= current_pose.poses[0].position.x;
-        pose.pose.position.z -= current_pose.poses[0].position.y;
+        pose.pose.position.x += marker_pose.poses[0].position.z/2;
+        pose.pose.position.y -= marker_pose.poses[0].position.x;
+        pose.pose.position.z -= marker_pose.poses[0].position.y;
         //send setpoint for 5 seconds
-        for(int i = 0; ros::ok() && i < 5*20; ++i){
+        for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
           setpoint_pub.publish(pose);
           ros::spinOnce();
           rate.sleep();
@@ -269,7 +283,7 @@ void approachMarker(){
     pose.pose.position.y = 0;
     pose.pose.position.z = FLIGHT_ALTITUDE;
 
-    for(int i = 0; ros::ok() && i < 10*20; ++i){
+    for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i){
       setpoint_pub.publish(pose);
       ros::spinOnce();
       rate.sleep();
@@ -278,7 +292,7 @@ void approachMarker(){
 
 void land(){
     //the setpoint publishing rate MUST be faster than 2Hz
-    ros::Rate rate(20.0);
+    ros::Rate rate(ROS_RATE);
 
     mavros_msgs::CommandTOL land_cmd;
     land_cmd.request.yaw = 0;
