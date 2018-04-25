@@ -36,18 +36,20 @@ sudo -H pip install pandas jinja2
 
 Download source files from Github
 ```
+cd
+git clone https://gitlab.ethz.ch/disco-students/fs18/bszebedy.git catkin_ws
 git submodule update --init --recursive
 ```
 Wait until downloading finish correctly, then run
 ```
-cd bszebedy_px4
+cd ~/catkin_ws/bszebedy_px4
 make posix_sitl_default gazebo
 ```
 A window will pop up shows a quadcoter. Close the window, go back to the terminal and press Ctrl+C
 
 Build this ROS package by
 ```
-cd .. (root of the repository)
+cd ~/catkin_ws
 catkin_make
 ```
 run following command so that rosrun can find our new nodes in your ```ex1``` package
@@ -59,11 +61,12 @@ You need to open 5 separate terminals in the root of the repository (Ctrl+Shift+
 
 Terminal 1:
 ```
+cd ~/catkin_ws/
 roscore
 ```
 Terminal 2:
 ```
-cd bszebedy_px4
+cd ~/catkin_ws/bszebedy_px4
 source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/posix_sitl_default
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
@@ -71,6 +74,7 @@ roslaunch px4 mavros_posix_sitl.launch
 ```
 Terminal 3:
 ```
+cd ~/catkin_ws/
 source ./devel/setup.bash
 rosrun whycon whycon camera/image_rect_color:=/camera/rgb/image_rect_color camera/camera_info:=/camera/rgb/camera_info _targets:=1 _inner_diameter:=0.09 _outer_diameter:=0.217
 ```
@@ -80,6 +84,7 @@ rosrun image_view image_view image:=/whycon/image_out
 ```
 Terminal 5:
 ```
+cd ~/catkin_ws/
 source ./devel/setup.bash
 rosrun ex1 takeoff_n_land
 ```
