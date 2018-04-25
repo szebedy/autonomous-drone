@@ -14,6 +14,7 @@
 #include <mavros_msgs/PositionTarget.h>
 #include <tf/tf.h>
 #include <tf/transform_datatypes.h>
+#include <tf2/buffer_core.h>
 #include <math.h>
 
 #define FLIGHT_ALTITUDE 1.5f
@@ -38,6 +39,7 @@ void takeOff();
 void turnTowardsMarker();
 void approachMarker();
 void land();
+float currentYaw();
 
 mavros_msgs::State current_state;
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
@@ -90,7 +92,7 @@ int main(int argc, char **argv)
     //ROS_INFO("%f, %f, %f, %f, %f, %f, %f", local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z,
     //          local_position.pose.orientation.x, local_position.pose.orientation.y, local_position.pose.orientation.z, local_position.pose.orientation.w);
 
-    //approachMarker();
+    approachMarker();
 
     land();
 
@@ -166,9 +168,7 @@ void takeOff(){
 void turnTowardsMarker(){
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(ROS_RATE);
-    float rad;
-
-    mavros_msgs::PositionTarget setpoint;
+    float rad, current_yaw;
 
     for(int j = 0; ros::ok() && j < 5 * ROS_RATE; ++j){
         if (ros::Time::now() - marker_pose.header.stamp < ros::Duration(1.0)) {
@@ -179,20 +179,14 @@ void turnTowardsMarker(){
                 break;
             }
 
-            //Calculate yaw current orientation
-            double roll, pitch, yaw;
-            tf::Quaternion q(local_position.pose.orientation.x,
-                             local_position.pose.orientation.y,
-                             local_position.pose.orientation.z,
-                             local_position.pose.orientation.w);
-            tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+            current_yaw = currentYaw();
 
-            ROS_INFO("Marker found, current yaw: %f, turning %f radians", yaw, rad);
+            ROS_INFO("Marker found, current yaw: %f, turning %f radians", current_yaw, rad);
             // turn towards the marker without change of position
             //pose_NED.pose.position.x = local_position.pose.position.x;
             //pose_NED.pose.position.y = local_position.pose.position.y;
             //pose_NED.pose.position.z = local_position.pose.position.z;
-            pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(yaw+rad);
+            pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+rad);
             //send setpoint for 5 seconds
             for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
                 local_pos_pub.publish(pose_NED);
@@ -211,7 +205,75 @@ void approachMarker(){
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(ROS_RATE);
 
-    mavros_msgs::PositionTarget setpoint;
+    tf2::BufferCore buffer_core;
+
+    //Transformation from map to drone coordinates
+    geometry_msgs::TransformStamped tf_map2drone;
+    tf_map2drone.header.frame_id = "map";
+    tf_map2drone.child_frame_id = "drone";
+
+    //Transformation from drone to visual marker coordinates
+    geometry_msgs::TransformStamped tf_drone2marker;
+    tf_drone2marker.header.frame_id = "drone";
+    tf_drone2marker.child_frame_id = "marker";
+
+    //Transformation from map to visual target coordinates
+    geometry_msgs::TransformStamped ts_lookup;
+
+    for(int j = 0; ros::ok() && j < 10; ++j){
+      if (ros::Time::now() - marker_pose.header.stamp < ros::Duration(5.0)) {
+        ROS_INFO("Marker found, approaching");
+        if (marker_pose.poses[0].position.z < 2) {
+          ROS_INFO("TODO: Changing orientation");
+          //pose.pose.orientation = marker_pose.poses[0].orientation;
+        }
+        if (marker_pose.poses[0].position.z < 1) {
+          if (marker_pose.poses[0].position.z < 0.6) {
+            ROS_INFO("Close enough");
+            break;
+          }
+          ROS_INFO("Close enough, last move");
+          j = 10;
+        }
+
+        //Transformation from map to drone coordinates
+        tf_map2drone.transform.translation.x = local_position.pose.position.x;
+        tf_map2drone.transform.translation.y = local_position.pose.position.y;
+        tf_map2drone.transform.translation.z = local_position.pose.position.z;
+        tf_map2drone.transform.rotation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, currentYaw());
+        buffer_core.setTransform(tf_map2drone, "default_authority");
+
+        //Transformation from drone to visual marker coordinates
+        tf_drone2marker.transform.translation.x = marker_pose.poses[0].position.z/2;
+        tf_drone2marker.transform.translation.y = -marker_pose.poses[0].position.x;
+        tf_drone2marker.transform.translation.z = -marker_pose.poses[0].position.y;
+        tf_drone2marker.transform.rotation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, 0);
+        buffer_core.setTransform(tf_drone2marker, "default_authority");
+
+        //Look up transformation from map to visual target coordinates
+        ts_lookup = buffer_core.lookupTransform("map", "marker", ros::Time(0));
+
+        // go towards the marker
+        pose_NED.pose.position.x = ts_lookup.transform.translation.x;
+        pose_NED.pose.position.y = ts_lookup.transform.translation.y;
+        pose_NED.pose.position.z = ts_lookup.transform.translation.z;
+        //pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
+        //send setpoint for 5 seconds
+        for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
+          local_pos_pub.publish(pose_NED);
+          ros::spinOnce();
+          rate.sleep();
+        }
+      }
+      else
+        ROS_INFO("No marker was found in the last 5 seconds");
+        ros::spinOnce();
+        rate.sleep();
+    }
+
+    ROS_INFO("Marker approached!");
+
+    /*mavros_msgs::PositionTarget setpoint;
 
     setpoint.coordinate_frame = mavros_msgs::PositionTarget::FRAME_BODY_OFFSET_NED;
     setpoint.header.frame_id = "drone";
@@ -242,52 +304,7 @@ void approachMarker(){
         ros::spinOnce();
         rate.sleep();
     }
-    ROS_INFO("Done waiting");
-
-    /*for(int j = 0; ros::ok() && j < 10; ++j){
-      if (ros::Time::now() - marker_pose.header.stamp < ros::Duration(5.0)) {
-        ROS_INFO("Marker found, approaching");
-        if (marker_pose.poses[0].position.z < 2) {
-          ROS_INFO("Changing orientation");
-          pose.pose.orientation = marker_pose.poses[0].orientation;
-        }
-        if (marker_pose.poses[0].position.z < 1) {
-          if (marker_pose.poses[0].position.z < 0.6) {
-            ROS_INFO("Close enough");
-            break;
-          }
-          ROS_INFO("Close enough, last move");
-          j = 10;
-        }
-        // go towards the marker
-        pose.pose.position.x += marker_pose.poses[0].position.z/2;
-        pose.pose.position.y -= marker_pose.poses[0].position.x;
-        pose.pose.position.z -= marker_pose.poses[0].position.y;
-        //send setpoint for 5 seconds
-        for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
-          setpoint_pub.publish(pose);
-          ros::spinOnce();
-          rate.sleep();
-        }
-      }
-      else
-        ROS_INFO("No marker was found in the last 5 seconds");
-        ros::spinOnce();
-        rate.sleep();
-    }
-
-    ROS_INFO("Marker approached!");
-
-    // Back to the origin
-    pose.pose.position.x = 0;
-    pose.pose.position.y = 0;
-    pose.pose.position.z = FLIGHT_ALTITUDE;
-
-    for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i){
-      setpoint_pub.publish(pose);
-      ros::spinOnce();
-      rate.sleep();
-    }*/
+    ROS_INFO("Done waiting");*/
 }
 
 void land(){
@@ -309,4 +326,17 @@ void land(){
     }
     ROS_INFO("Success");
     return;
+}
+
+
+float currentYaw(){
+    //Calculate yaw current orientation
+    double roll, pitch, yaw;
+    tf::Quaternion q(local_position.pose.orientation.x,
+                     local_position.pose.orientation.y,
+                     local_position.pose.orientation.z,
+                     local_position.pose.orientation.w);
+    tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+
+    return yaw;
 }
