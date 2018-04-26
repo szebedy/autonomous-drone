@@ -2,7 +2,7 @@
   <include file="$(find mavros)/launch/px4.launch">
     <arg name="fcu_url" value="tcp://127.0.0.1:5760" />
   </include>
-  <include file="$(find realsense_camera)/launch/r200_nodelet_rgbd.launch">
+  <include file="$(find realsense_camera)/launch/r200_nodelet_rgbd.launch" />
   <node name="whycon" type="whycon" pkg="whycon" output="screen">
     <remap from="camera/image_rect_color" to="camera/rgb/image_rect_color" />
     <remap from="camera/camera_info" to="camera/rgb/camera_info" />

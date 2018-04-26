@@ -17,7 +17,7 @@
 #include <tf2/buffer_core.h>
 #include <math.h>
 
-#define FLIGHT_ALTITUDE 1.5f
+#define FLIGHT_ALTITUDE 1.0f
 
 #define ROS_RATE 20.0
 
@@ -32,14 +32,16 @@ ros::ServiceClient arming_client;
 ros::ServiceClient land_client;
 ros::ServiceClient set_mode_client;
 
-geometry_msgs::PoseStamped pose_NED;
-
 void offboardMode();
 void takeOff();
 void turnTowardsMarker();
 void approachMarker();
 void land();
 float currentYaw();
+
+geometry_msgs::PoseStamped pose_NED;
+ros::Time last_request;
+mavros_msgs::CommandBool arm_cmd;
 
 mavros_msgs::State current_state;
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
@@ -94,7 +96,7 @@ int main(int argc, char **argv)
 
     //approachMarker();
 
-    //land();
+    land();
 
     return 0;
 }
@@ -105,7 +107,7 @@ void offboardMode(){
 
     pose_NED.pose.position.x = 0;
     pose_NED.pose.position.y = 0;
-    pose_NED.pose.position.z = 0;
+    pose_NED.pose.position.z = FLIGHT_ALTITUDE;
 
     //send a few setpoints before starting, otherwise px4 will not switch to OFFBOARD mode
     for(int i = 100; ros::ok() && i > 0; --i){
@@ -117,10 +119,9 @@ void offboardMode(){
     mavros_msgs::SetMode offb_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
 
-    mavros_msgs::CommandBool arm_cmd;
     arm_cmd.request.value = true;
 
-    ros::Time last_request = ros::Time::now();
+    last_request = ros::Time::now();
 
     // change to offboard mode and arm
     while(ros::ok() && !current_state.armed){
@@ -142,19 +143,6 @@ void offboardMode(){
         ros::spinOnce();
         rate.sleep();
     }
-
-    arm_cmd.request.value = false;
-    // disarm
-    while(ros::ok() && current_state.armed){
-        if( current_state.armed && (ros::Time::now() - last_request > ros::Duration(5.0))){
-            if( arming_client.call(arm_cmd) && arm_cmd.response.success){
-                ROS_INFO("Vehicle disarmed");
-            }
-            last_request = ros::Time::now();
-        }
-        ros::spinOnce();
-        rate.sleep();
-    }
     return;
 }
 
@@ -163,10 +151,10 @@ void takeOff(){
     ros::Rate rate(ROS_RATE);
 
     // Take off
-    pose_NED.pose.position.x = 1;
-    pose_NED.pose.position.y = 5;
+    pose_NED.pose.position.x = 0;
+    pose_NED.pose.position.y = 0;
     pose_NED.pose.position.z = FLIGHT_ALTITUDE;
-    pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(-0.7f);
+    //pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(-0.7f);
 
     ROS_INFO("Taking off");
     for(int i = 0; ros::ok() && i < 3 * ROS_RATE; ++i){
@@ -212,6 +200,7 @@ void turnTowardsMarker(){
             rate.sleep();
         }
     }
+    return;
 }
 
 void approachMarker(){
@@ -318,6 +307,7 @@ void approachMarker(){
         rate.sleep();
     }
     ROS_INFO("Done waiting");*/
+    return;
 }
 
 void land(){
@@ -338,6 +328,19 @@ void land(){
         rate.sleep();
     }
     ROS_INFO("Success");
+
+    arm_cmd.request.value = false;
+    // disarm
+    while(ros::ok() && current_state.armed){
+        if( current_state.armed && (ros::Time::now() - last_request > ros::Duration(5.0))){
+            if( arming_client.call(arm_cmd) && arm_cmd.response.success){
+                ROS_INFO("Vehicle disarmed");
+            }
+            last_request = ros::Time::now();
+        }
+        ros::spinOnce();
+        rate.sleep();
+    }
     return;
 }
 
