@@ -85,16 +85,16 @@ int main(int argc, char **argv)
 
     offboardMode();
 
-    takeOff();
+    //takeOff();
 
-    turnTowardsMarker();
+    //turnTowardsMarker();
 
     //ROS_INFO("%f, %f, %f, %f, %f, %f, %f", local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z,
     //          local_position.pose.orientation.x, local_position.pose.orientation.y, local_position.pose.orientation.z, local_position.pose.orientation.w);
 
-    approachMarker();
+    //approachMarker();
 
-    land();
+    //land();
 
     return 0;
 }
@@ -105,7 +105,7 @@ void offboardMode(){
 
     pose_NED.pose.position.x = 0;
     pose_NED.pose.position.y = 0;
-    pose_NED.pose.position.z = FLIGHT_ALTITUDE;
+    pose_NED.pose.position.z = 0;
 
     //send a few setpoints before starting, otherwise px4 will not switch to OFFBOARD mode
     for(int i = 100; ros::ok() && i > 0; --i){
@@ -139,6 +139,19 @@ void offboardMode(){
             }
         }
         local_pos_pub.publish(pose_NED);
+        ros::spinOnce();
+        rate.sleep();
+    }
+
+    arm_cmd.request.value = false;
+    // disarm
+    while(ros::ok() && current_state.armed){
+        if( current_state.armed && (ros::Time::now() - last_request > ros::Duration(5.0))){
+            if( arming_client.call(arm_cmd) && arm_cmd.response.success){
+                ROS_INFO("Vehicle disarmed");
+            }
+            last_request = ros::Time::now();
+        }
         ros::spinOnce();
         rate.sleep();
     }
