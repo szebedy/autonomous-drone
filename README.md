@@ -128,7 +128,7 @@ roslaunch visual_control intel_aero.launch
 ```
 
 ### Run roscore, mavros, whycon and visual_control
-You need to open 4 separate terminals in the root of the repository (Ctrl+Alt+T, 4 x Ctrl+Shift+T)
+You need to open 5 separate terminals in the root of the repository (Ctrl+Alt+T, 4 x Ctrl+Shift+T)
 
 Terminal 1:
 ```
@@ -144,9 +144,13 @@ Terminal 3:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
-rosrun whycon whycon camera/image_rect_color:=/camera/rgb/image_rect_color camera/camera_info:=/camera/rgb/camera_info _targets:=1 _inner_diameter:=0.09 _outer_diameter:=0.217
+rosrun whycon whycon camera/image_rect_color:=/camera/rgb/image_rect_color camera/camera_info:=/camera/rgb/camera_info _targets:=1
 ```
 Terminal 4:
+```
+roslaunch realsense_camera r200_nodelet_rgbd.launch
+```
+Terminal 5:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
