@@ -17,7 +17,6 @@ rosdep update
 echo "source /opt/ros/kinetic/setup.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
-
 ```
 sudo apt install ros-kinetic-mavros ros-kinetic-mavros-extras
 sudo /opt/ros/kinetic/lib/mavros/install_geographiclib_datasets.sh
@@ -32,12 +31,13 @@ sudo apt-get install ant protobuf-compiler libeigen3-dev libopencv-dev openjdk-8
 sudo apt-get install python-pip -y
 sudo -H pip install pandas jinja2
 ```
-
-
 Download source files from Github
 ```
 cd
 git clone https://gitlab.ethz.ch/disco-students/fs18/bszebedy.git catkin_ws
+```
+```
+cd ~/catkin_ws
 git submodule update --init --recursive
 ```
 Wait until downloading finish correctly, then run
@@ -52,7 +52,7 @@ Build this ROS package by
 cd ~/catkin_ws
 catkin_make
 ```
-run following command so that rosrun can find our new nodes in your ```ex1``` package
+run following command so that rosrun can find our new nodes in your ```visual_control``` package
 
 # Usage
 ## Run roscore, mavros and this ros nodde
@@ -86,5 +86,5 @@ Terminal 5:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
-rosrun ex1 takeoff_n_land
+rosrun visual_control takeoff_n_land
 ```
