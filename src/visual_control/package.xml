@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>ex1</name>
+  <name>visual_control</name>
   <version>0.0.0</version>
-  <description>The ex1 package</description>
+  <description>The visual_control package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
