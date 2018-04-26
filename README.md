@@ -55,8 +55,29 @@ catkin_make
 run following command so that rosrun can find our new nodes in your ```visual_control``` package
 
 # Usage
-## Run roscore, mavros and this ros nodde
+## Simulation
+You have two options for launching the simulation. You can either launch everything in the same window with a launch file, or you can launc each component separately.
 
+### Launch file
+You need to open two separate terminals in the root of the repository (Ctrl+Alt+T, Ctrl+Shift+T)
+
+Terminal 1:
+```
+cd ~/catkin_ws/
+roscore
+```
+Terminal 2:
+```
+cd ~/catkin_ws/
+source ./devel/setup.bash
+cd ~/catkin_ws/bszebedy_px4
+source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/posix_sitl_default
+export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)
+export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
+roslaunch visual_control simulation.launch
+```
+
+## Run roscore, px4 with mavros, whycon, image_view and visual_control
 You need to open 5 separate terminals in the root of the repository (Ctrl+Shift+T)
 
 Terminal 1:
