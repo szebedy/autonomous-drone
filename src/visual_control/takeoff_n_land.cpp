@@ -87,9 +87,9 @@ int main(int argc, char **argv)
 
     offboardMode();
 
-    //takeOff();
+    takeOff();
 
-    //turnTowardsMarker();
+    turnTowardsMarker();
 
     //ROS_INFO("%f, %f, %f, %f, %f, %f, %f", local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z,
     //          local_position.pose.orientation.x, local_position.pose.orientation.y, local_position.pose.orientation.z, local_position.pose.orientation.w);
@@ -105,8 +105,8 @@ void offboardMode(){
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(ROS_RATE);
 
-    pose_NED.pose.position.x = 0;
-    pose_NED.pose.position.y = 0;
+    pose_NED.pose.position.x = local_position.pose.position.x;
+    pose_NED.pose.position.y = local_position.pose.position.y;
     pose_NED.pose.position.z = FLIGHT_ALTITUDE;
 
     //send a few setpoints before starting, otherwise px4 will not switch to OFFBOARD mode
@@ -151,13 +151,13 @@ void takeOff(){
     ros::Rate rate(ROS_RATE);
 
     // Take off
-    pose_NED.pose.position.x = 0;
-    pose_NED.pose.position.y = 0;
+    pose_NED.pose.position.x = local_position.pose.position.x;
+    pose_NED.pose.position.y = local_position.pose.position.y;
     pose_NED.pose.position.z = FLIGHT_ALTITUDE;
     //pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(-0.7f);
 
     ROS_INFO("Taking off");
-    for(int i = 0; ros::ok() && i < 3 * ROS_RATE; ++i){
+    for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i){
         local_pos_pub.publish(pose_NED);
         ros::spinOnce();
         rate.sleep();
@@ -184,9 +184,9 @@ void turnTowardsMarker(){
 
             ROS_INFO("Marker found, current yaw: %f, turning %f radians", current_yaw, rad);
             // turn towards the marker without change of position
-            //pose_NED.pose.position.x = local_position.pose.position.x;
-            //pose_NED.pose.position.y = local_position.pose.position.y;
-            //pose_NED.pose.position.z = local_position.pose.position.z;
+            pose_NED.pose.position.x = local_position.pose.position.x;
+            pose_NED.pose.position.y = local_position.pose.position.y;
+            pose_NED.pose.position.z = local_position.pose.position.z;
             pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+rad);
             //send setpoint for 5 seconds
             for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
@@ -246,7 +246,7 @@ void approachMarker(){
         buffer_core.setTransform(tf_map2drone, "default_authority");
 
         //Transformation from drone to visual marker coordinates
-        tf_drone2marker.transform.translation.x = marker_pose.poses[0].position.z/2;
+        tf_drone2marker.transform.translation.x = marker_pose.poses[0].position.z/2; //Only fly half of the forward distance
         tf_drone2marker.transform.translation.y = -marker_pose.poses[0].position.x;
         tf_drone2marker.transform.translation.z = -marker_pose.poses[0].position.y;
         tf_drone2marker.transform.rotation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, 0);
@@ -328,6 +328,12 @@ void land(){
         rate.sleep();
     }
     ROS_INFO("Success");
+
+    //Wait 5 seconds for proper landing
+    for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
+      ros::spinOnce();
+      rate.sleep();
+    }
 
     arm_cmd.request.value = false;
     // disarm
