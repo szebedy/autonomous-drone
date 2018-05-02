@@ -109,10 +109,11 @@ void offboardMode(){
 
     pose_NWU.pose.position.x = local_position.pose.position.x;
     pose_NWU.pose.position.y = local_position.pose.position.y;
-    pose_NWU.pose.position.z = FLIGHT_ALTITUDE;
+    pose_NWU.pose.position.z = local_position.pose.position.z;
+    pose_NWU.pose.orientation = local_position.pose.orientation;
 
     //send a few setpoints before starting, otherwise px4 will not switch to OFFBOARD mode
-    for(int i = 100; ros::ok() && i > 0; --i){
+    for(int i = 20; ros::ok() && i > 0; --i){
         local_pos_pub.publish(pose_NWU);
         ros::spinOnce();
         rate.sleep();
@@ -157,8 +158,8 @@ void takeOff(){
     // Take off
     pose_NWU.pose.position.x = local_position.pose.position.x;
     pose_NWU.pose.position.y = local_position.pose.position.y;
-    pose_NWU.pose.position.z = FLIGHT_ALTITUDE;
-    //pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(-0.7f);
+    pose_NWU.pose.position.z = local_position.pose.position.z + FLIGHT_ALTITUDE;
+    pose_NWU.pose.orientation = local_position.pose.orientation;
 
     ROS_INFO("Taking off");
     for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i){
@@ -179,7 +180,7 @@ void turnTowardsMarker(){
         if (ros::Time::now() - marker_pose.header.stamp < ros::Duration(1.0)) {
             //Calculate yaw angle difference of marker in radians
             rad = -atan2f(marker_pose.poses[0].position.x, marker_pose.poses[0].position.z);
-            if (fabs(rad) < 0.03) {
+            if (fabs(rad) < 0.1) {
                 ROS_INFO("Headed towards marker!");
                 break;
             }
