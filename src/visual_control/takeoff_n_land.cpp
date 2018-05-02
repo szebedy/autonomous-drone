@@ -39,7 +39,7 @@ void approachMarker();
 void land();
 float currentYaw();
 
-geometry_msgs::PoseStamped pose_NED;
+geometry_msgs::PoseStamped pose_NWU;
 ros::Time last_request;
 mavros_msgs::CommandBool arm_cmd;
 
@@ -105,13 +105,15 @@ void offboardMode(){
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(ROS_RATE);
 
-    pose_NED.pose.position.x = local_position.pose.position.x;
-    pose_NED.pose.position.y = local_position.pose.position.y;
-    pose_NED.pose.position.z = FLIGHT_ALTITUDE;
+    ROS_INFO("Switching to OFFBOARD mode. Current position: N: %f, W: %f, U: %f", local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z);
+
+    pose_NWU.pose.position.x = local_position.pose.position.x;
+    pose_NWU.pose.position.y = local_position.pose.position.y;
+    pose_NWU.pose.position.z = FLIGHT_ALTITUDE;
 
     //send a few setpoints before starting, otherwise px4 will not switch to OFFBOARD mode
     for(int i = 100; ros::ok() && i > 0; --i){
-        local_pos_pub.publish(pose_NED);
+        local_pos_pub.publish(pose_NWU);
         ros::spinOnce();
         rate.sleep();
     }
@@ -139,7 +141,7 @@ void offboardMode(){
                 last_request = ros::Time::now();
             }
         }
-        local_pos_pub.publish(pose_NED);
+        local_pos_pub.publish(pose_NWU);
         ros::spinOnce();
         rate.sleep();
     }
@@ -150,15 +152,17 @@ void takeOff(){
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(ROS_RATE);
 
+    ROS_INFO("Taking off. Current position: N: %f, W: %f, U: %f", local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z);
+
     // Take off
-    pose_NED.pose.position.x = local_position.pose.position.x;
-    pose_NED.pose.position.y = local_position.pose.position.y;
-    pose_NED.pose.position.z = FLIGHT_ALTITUDE;
+    pose_NWU.pose.position.x = local_position.pose.position.x;
+    pose_NWU.pose.position.y = local_position.pose.position.y;
+    pose_NWU.pose.position.z = FLIGHT_ALTITUDE;
     //pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(-0.7f);
 
     ROS_INFO("Taking off");
     for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i){
-        local_pos_pub.publish(pose_NED);
+        local_pos_pub.publish(pose_NWU);
         ros::spinOnce();
         rate.sleep();
     }
@@ -184,13 +188,13 @@ void turnTowardsMarker(){
 
             ROS_INFO("Marker found, current yaw: %f, turning %f radians", current_yaw, rad);
             // turn towards the marker without change of position
-            pose_NED.pose.position.x = local_position.pose.position.x;
-            pose_NED.pose.position.y = local_position.pose.position.y;
-            pose_NED.pose.position.z = local_position.pose.position.z;
-            pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+rad);
+            pose_NWU.pose.position.x = local_position.pose.position.x;
+            pose_NWU.pose.position.y = local_position.pose.position.y;
+            pose_NWU.pose.position.z = local_position.pose.position.z;
+            pose_NWU.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+rad);
             //send setpoint for 5 seconds
             for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
-                local_pos_pub.publish(pose_NED);
+                local_pos_pub.publish(pose_NWU);
                 ros::spinOnce();
                 rate.sleep();
             }
@@ -256,13 +260,13 @@ void approachMarker(){
         ts_lookup = buffer_core.lookupTransform("map", "marker", ros::Time(0));
 
         // go towards the marker
-        pose_NED.pose.position.x = ts_lookup.transform.translation.x;
-        pose_NED.pose.position.y = ts_lookup.transform.translation.y;
-        pose_NED.pose.position.z = ts_lookup.transform.translation.z;
+        pose_NWU.pose.position.x = ts_lookup.transform.translation.x;
+        pose_NWU.pose.position.y = ts_lookup.transform.translation.y;
+        pose_NWU.pose.position.z = ts_lookup.transform.translation.z;
         //pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
         //send setpoint for 5 seconds
         for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
-          local_pos_pub.publish(pose_NED);
+          local_pos_pub.publish(pose_NWU);
           ros::spinOnce();
           rate.sleep();
         }
