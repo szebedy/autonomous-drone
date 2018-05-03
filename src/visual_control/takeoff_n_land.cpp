@@ -13,8 +13,8 @@
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/PositionTarget.h>
 #include <tf/tf.h>
-#include <tf/transform_datatypes.h>
-#include <tf2/buffer_core.h>
+#include <tf/transform_broadcaster.h>
+#include <tf/transform_listener.h>
 #include <math.h>
 
 #define FLIGHT_ALTITUDE 1.0f
@@ -22,7 +22,7 @@
 #define ROS_RATE 20.0
 
 ros::Subscriber state_sub;
-ros::Subscriber pose_sub;
+ros::Subscriber marker_pos_sub;
 ros::Subscriber local_pos_sub;
 
 ros::Publisher local_pos_pub;
@@ -35,7 +35,7 @@ ros::ServiceClient set_mode_client;
 void offboardMode();
 void takeOff();
 void turnTowardsMarker();
-void approachMarker();
+void approachMarker(ros::NodeHandle &nh);
 void land();
 float currentYaw();
 
@@ -48,14 +48,36 @@ void state_cb(const mavros_msgs::State::ConstPtr& msg){
     current_state = *msg;
 }
 
-geometry_msgs::PoseArray marker_pose;
-void pose_cb(const geometry_msgs::PoseArray::ConstPtr& msg){
-    marker_pose = *msg;
+geometry_msgs::PoseArray marker_position;
+void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg){
+    marker_position = *msg;
+
+    //Transformation from drone to visual marker coordinates
+    static tf::TransformBroadcaster br;
+    tf::Transform transform;
+    transform.setOrigin( tf::Vector3(marker_position.poses[0].position.z/2, //Only fly half of the forward distance
+                                     -marker_position.poses[0].position.x,
+                                     -marker_position.poses[0].position.y) );
+    tf::Quaternion q;
+    q.setRPY(0, 0, 0);
+    transform.setRotation(q);
+    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "drone", "target_position"));
 }
 
 geometry_msgs::PoseStamped local_position;
 void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     local_position = *msg;
+
+    //Transformation from map to drone coordinates
+    static tf::TransformBroadcaster br;
+    tf::Transform transform;
+    transform.setOrigin( tf::Vector3(local_position.pose.position.x,
+                                     local_position.pose.position.y,
+                                     local_position.pose.position.z) );
+    tf::Quaternion q;
+    tf::quaternionMsgToTF(local_position.pose.orientation, q);
+    transform.setRotation(q);
+    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "local_origin", "drone"));
 }
 
 int main(int argc, char **argv)
@@ -68,7 +90,7 @@ int main(int argc, char **argv)
     ros::Rate rate(ROS_RATE);
 
     state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
-    pose_sub = nh.subscribe<geometry_msgs::PoseArray>("whycon/poses", 10, pose_cb);
+    marker_pos_sub = nh.subscribe<geometry_msgs::PoseArray>("whycon/poses", 10, marker_position_cb);
     local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 10, local_position_cb);
 
     local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 10);
@@ -94,7 +116,7 @@ int main(int argc, char **argv)
     //ROS_INFO("%f, %f, %f, %f, %f, %f, %f", local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z,
     //          local_position.pose.orientation.x, local_position.pose.orientation.y, local_position.pose.orientation.z, local_position.pose.orientation.w);
 
-    //approachMarker();
+    approachMarker(nh);
 
     land();
 
@@ -156,8 +178,8 @@ void takeOff(){
     ROS_INFO("Taking off. Current position: N: %f, W: %f, U: %f", local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z);
 
     // Take off
-    pose_NWU.pose.position.x = local_position.pose.position.x;
-    pose_NWU.pose.position.y = local_position.pose.position.y;
+    pose_NWU.pose.position.x = 2; //local_position.pose.position.x;
+    pose_NWU.pose.position.y = 2; //local_position.pose.position.y;
     pose_NWU.pose.position.z = local_position.pose.position.z + FLIGHT_ALTITUDE;
     pose_NWU.pose.orientation = local_position.pose.orientation;
 
@@ -177,9 +199,9 @@ void turnTowardsMarker(){
     float rad, current_yaw;
 
     for(int j = 0; ros::ok() && j < 5 * ROS_RATE; ++j){
-        if (ros::Time::now() - marker_pose.header.stamp < ros::Duration(1.0)) {
+        if (ros::Time::now() - marker_position.header.stamp < ros::Duration(1.0)) {
             //Calculate yaw angle difference of marker in radians
-            rad = -atan2f(marker_pose.poses[0].position.x, marker_pose.poses[0].position.z);
+            rad = -atan2f(marker_position.poses[0].position.x, marker_position.poses[0].position.z);
             if (fabs(rad) < 0.1) {
                 ROS_INFO("Headed towards marker!");
                 break;
@@ -208,34 +230,23 @@ void turnTowardsMarker(){
     return;
 }
 
-void approachMarker(){
+void approachMarker(ros::NodeHandle & nh){
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(ROS_RATE);
 
-    tf2::BufferCore buffer_core;
+    static tf::TransformListener listener;
+    //nh.setParam("mavros/setpoint_position/tf/frame_id", "local_origin");
+    //nh.setParam("mavros/setpoint_position/tf/child_frame_id", "target_position");
 
-    //Transformation from map to drone coordinates
-    geometry_msgs::TransformStamped tf_map2drone;
-    tf_map2drone.header.frame_id = "map";
-    tf_map2drone.child_frame_id = "drone";
-
-    //Transformation from drone to visual marker coordinates
-    geometry_msgs::TransformStamped tf_drone2marker;
-    tf_drone2marker.header.frame_id = "drone";
-    tf_drone2marker.child_frame_id = "marker";
-
-    //Transformation from map to visual target coordinates
-    geometry_msgs::TransformStamped ts_lookup;
-
-    for(int j = 0; ros::ok() && j < 10; ++j){
-      if (ros::Time::now() - marker_pose.header.stamp < ros::Duration(5.0)) {
+    for(int j = 0; ros::ok() && j < 200; ++j){
+      if (ros::Time::now() - marker_position.header.stamp < ros::Duration(1.0)) {
         ROS_INFO("Marker found, approaching");
-        if (marker_pose.poses[0].position.z < 2) {
+        if (marker_position.poses[0].position.z < 2) {
           ROS_INFO("TODO: Changing orientation");
           //pose.pose.orientation = marker_pose.poses[0].orientation;
         }
-        if (marker_pose.poses[0].position.z < 1) {
-          if (marker_pose.poses[0].position.z < 0.6) {
+        if (marker_position.poses[0].position.z < 1) {
+          if (marker_position.poses[0].position.z < 0.6) {
             ROS_INFO("Close enough");
             break;
           }
@@ -243,75 +254,35 @@ void approachMarker(){
           j = 10;
         }
 
-        //Transformation from map to drone coordinates
-        tf_map2drone.transform.translation.x = local_position.pose.position.x;
-        tf_map2drone.transform.translation.y = local_position.pose.position.y;
-        tf_map2drone.transform.translation.z = local_position.pose.position.z;
-        tf_map2drone.transform.rotation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, currentYaw());
-        buffer_core.setTransform(tf_map2drone, "default_authority");
+        tf::StampedTransform transform;
+        try {
+          listener.waitForTransform("local_origin", "target_position", ros::Time(0), ros::Duration(3.0));
+          listener.lookupTransform("local_origin", "target_position", ros::Time(0), transform);        // go towards the marker
+          pose_NWU.pose.position.x = transform.getOrigin().x();
+          pose_NWU.pose.position.y = transform.getOrigin().y();
+          pose_NWU.pose.position.z = transform.getOrigin().z();
+          //pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
 
-        //Transformation from drone to visual marker coordinates
-        tf_drone2marker.transform.translation.x = marker_pose.poses[0].position.z/2; //Only fly half of the forward distance
-        tf_drone2marker.transform.translation.y = -marker_pose.poses[0].position.x;
-        tf_drone2marker.transform.translation.z = -marker_pose.poses[0].position.y;
-        tf_drone2marker.transform.rotation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, 0);
-        buffer_core.setTransform(tf_drone2marker, "default_authority");
-
-        //Look up transformation from map to visual target coordinates
-        ts_lookup = buffer_core.lookupTransform("map", "marker", ros::Time(0));
-
-        // go towards the marker
-        pose_NWU.pose.position.x = ts_lookup.transform.translation.x;
-        pose_NWU.pose.position.y = ts_lookup.transform.translation.y;
-        pose_NWU.pose.position.z = ts_lookup.transform.translation.z;
-        //pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
-        //send setpoint for 5 seconds
-        for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
           local_pos_pub.publish(pose_NWU);
+          //nh.setParam("mavros/setpoint_position/tf/listen", true);
           ros::spinOnce();
           rate.sleep();
         }
-      }
-      else
-        ROS_INFO("No marker was found in the last 5 seconds");
+        catch (tf::TransformException ex){
+          ROS_ERROR("%s",ex.what());
+          ros::Duration(1.0).sleep();
+        }
+      } else {
+        //nh.setParam("mavros/setpoint_position/tf/listen", false);
+        ROS_INFO("No marker was found in the last 1 second");
         ros::spinOnce();
         rate.sleep();
+      }
     }
 
+    //nh.setParam("mavros/setpoint_position/tf/listen", false);
     ROS_INFO("Marker approached!");
 
-    /*mavros_msgs::PositionTarget setpoint;
-
-    setpoint.coordinate_frame = mavros_msgs::PositionTarget::FRAME_BODY_OFFSET_NED;
-    setpoint.header.frame_id = "drone";
-    setpoint.type_mask = mavros_msgs::PositionTarget::IGNORE_VX | mavros_msgs::PositionTarget::IGNORE_VY |
-            mavros_msgs::PositionTarget::IGNORE_VZ | mavros_msgs::PositionTarget::IGNORE_AFX |
-            mavros_msgs::PositionTarget::IGNORE_AFY | mavros_msgs::PositionTarget::IGNORE_AFZ |
-            mavros_msgs::PositionTarget::IGNORE_YAW | mavros_msgs::PositionTarget::IGNORE_YAW_RATE;
-    setpoint.header.stamp = ros::Time::now();
-
-    setpoint.position.x = 0.0f; //N
-    setpoint.position.y = 2.0f; //W
-    setpoint.position.z = 2.0f; //U
-
-    setpoint.velocity.x = 0.0f;
-    setpoint.velocity.y = 0.0f;
-    setpoint.velocity.z = 0.0f;
-
-    setpoint.acceleration_or_force.x = 0.0f;
-    setpoint.acceleration_or_force.y = 0.0f;
-    setpoint.acceleration_or_force.z = 0.0f;
-
-    setpoint.yaw = 0.0f;
-    setpoint.yaw_rate = 0.0f;
-
-    ROS_INFO("Publishing FRAME_BODY_NED position");
-    for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i){
-        setpoint_pub.publish(setpoint);
-        ros::spinOnce();
-        rate.sleep();
-    }
-    ROS_INFO("Done waiting");*/
     return;
 }
 

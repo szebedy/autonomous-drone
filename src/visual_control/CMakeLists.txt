@@ -9,6 +9,7 @@ project(visual_control)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   mavros
+  tf
 )
 
 ## System dependencies are found with CMake's conventions
