@@ -7,19 +7,21 @@
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/TransformStamped.h>
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/CommandTOL.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/PositionTarget.h>
 #include <tf/tf.h>
-#include <tf/transform_broadcaster.h>
-#include <tf/transform_listener.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
 #include <math.h>
 
 #define FLIGHT_ALTITUDE 1.0f
-
 #define ROS_RATE 20.0
+#define MAX_ATTEMPTS 100
 
 ros::Subscriber state_sub;
 ros::Subscriber marker_pos_sub;
@@ -52,32 +54,43 @@ geometry_msgs::PoseArray marker_position;
 void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg){
     marker_position = *msg;
 
+    static tf2_ros::TransformBroadcaster br;
+
     //Transformation from drone to visual marker coordinates
-    static tf::TransformBroadcaster br;
-    tf::Transform transform;
-    transform.setOrigin( tf::Vector3(marker_position.poses[0].position.z/2, //Only fly half of the forward distance
-                                     -marker_position.poses[0].position.x,
-                                     -marker_position.poses[0].position.y) );
-    tf::Quaternion q;
+    geometry_msgs::TransformStamped transformStamped;
+    transformStamped.header.stamp = ros::Time::now();
+    transformStamped.header.frame_id = "drone";
+    transformStamped.child_frame_id = "target_position";
+    transformStamped.transform.translation.x = marker_position.poses[0].position.z - 0.4; //The target is 0.4 m in front of the marker
+    transformStamped.transform.translation.y = -marker_position.poses[0].position.x;
+    transformStamped.transform.translation.z = -marker_position.poses[0].position.y;
+    tf2::Quaternion q;
     q.setRPY(0, 0, 0);
-    transform.setRotation(q);
-    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "drone", "target_position"));
+    transformStamped.transform.rotation.x = q.x();
+    transformStamped.transform.rotation.y = q.y();
+    transformStamped.transform.rotation.z = q.z();
+    transformStamped.transform.rotation.w = q.w();
+
+    br.sendTransform(transformStamped);
 }
 
 geometry_msgs::PoseStamped local_position;
 void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     local_position = *msg;
 
+    static tf2_ros::TransformBroadcaster br;
+
     //Transformation from map to drone coordinates
-    static tf::TransformBroadcaster br;
-    tf::Transform transform;
-    transform.setOrigin( tf::Vector3(local_position.pose.position.x,
-                                     local_position.pose.position.y,
-                                     local_position.pose.position.z) );
-    tf::Quaternion q;
-    tf::quaternionMsgToTF(local_position.pose.orientation, q);
-    transform.setRotation(q);
-    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "local_origin", "drone"));
+    geometry_msgs::TransformStamped transformStamped;
+    transformStamped.header.stamp = ros::Time::now();
+    transformStamped.header.frame_id = "map";
+    transformStamped.child_frame_id = "drone";
+    transformStamped.transform.translation.x = local_position.pose.position.x;
+    transformStamped.transform.translation.y = local_position.pose.position.y;
+    transformStamped.transform.translation.z = local_position.pose.position.z;
+    transformStamped.transform.rotation = local_position.pose.orientation;
+
+    br.sendTransform(transformStamped);
 }
 
 int main(int argc, char **argv)
@@ -108,6 +121,10 @@ int main(int argc, char **argv)
     }
 
     offboardMode();
+
+    nh.setParam("mavros/local_position/tf/frame_id", "map");
+    nh.setParam("mavros/local_position/tf/child_frame_id", "drone");
+    //nh.setParam("mavros/local_position/tf/send", true);
 
     takeOff();
 
@@ -234,33 +251,29 @@ void approachMarker(ros::NodeHandle & nh){
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(ROS_RATE);
 
-    static tf::TransformListener listener;
-    //nh.setParam("mavros/setpoint_position/tf/frame_id", "local_origin");
+    static tf2_ros::Buffer tfBuffer;
+    static tf2_ros::TransformListener tfListener(tfBuffer);
+    //nh.setParam("mavros/setpoint_position/tf/frame_id", "map");
     //nh.setParam("mavros/setpoint_position/tf/child_frame_id", "target_position");
 
-    for(int j = 0; ros::ok() && j < 200; ++j){
+    for(int j = 0; ros::ok() && j < MAX_ATTEMPTS; ++j){
       if (ros::Time::now() - marker_position.header.stamp < ros::Duration(1.0)) {
         ROS_INFO("Marker found, approaching");
         if (marker_position.poses[0].position.z < 2) {
           ROS_INFO("TODO: Changing orientation");
           //pose.pose.orientation = marker_pose.poses[0].orientation;
         }
-        if (marker_position.poses[0].position.z < 1) {
-          if (marker_position.poses[0].position.z < 0.6) {
-            ROS_INFO("Close enough");
-            break;
-          }
-          ROS_INFO("Close enough, last move");
-          j = 10;
+        if (marker_position.poses[0].position.z < 0.6) {
+          ROS_INFO("Close enough");
+          break;
         }
 
-        tf::StampedTransform transform;
+        geometry_msgs::TransformStamped transformStamped;
         try {
-          listener.waitForTransform("local_origin", "target_position", ros::Time(0), ros::Duration(3.0));
-          listener.lookupTransform("local_origin", "target_position", ros::Time(0), transform);        // go towards the marker
-          pose_NWU.pose.position.x = transform.getOrigin().x();
-          pose_NWU.pose.position.y = transform.getOrigin().y();
-          pose_NWU.pose.position.z = transform.getOrigin().z();
+          transformStamped = tfBuffer.lookupTransform("map", "target_position", ros::Time(0));
+          pose_NWU.pose.position.x = transformStamped.transform.translation.x;
+          pose_NWU.pose.position.y = transformStamped.transform.translation.y;
+          pose_NWU.pose.position.z = transformStamped.transform.translation.z;
           //pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
 
           local_pos_pub.publish(pose_NWU);
@@ -268,9 +281,10 @@ void approachMarker(ros::NodeHandle & nh){
           ros::spinOnce();
           rate.sleep();
         }
-        catch (tf::TransformException ex){
+        catch (tf2::TransformException &ex){
           ROS_ERROR("%s",ex.what());
           ros::Duration(1.0).sleep();
+          continue;
         }
       } else {
         //nh.setParam("mavros/setpoint_position/tf/listen", false);
