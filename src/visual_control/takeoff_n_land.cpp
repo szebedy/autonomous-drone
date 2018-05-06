@@ -45,6 +45,8 @@ geometry_msgs::PoseStamped pose_NWU;
 ros::Time last_request;
 mavros_msgs::CommandBool arm_cmd;
 
+tf2_ros::Buffer tfBuffer;
+
 mavros_msgs::State current_state;
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
     current_state = *msg;
@@ -56,12 +58,12 @@ void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg){
 
     static tf2_ros::TransformBroadcaster br;
 
-    // Transformation from drone to visual marker coordinates
+    // Transformation from drone to visual marker
     geometry_msgs::TransformStamped transformStamped;
     transformStamped.header.stamp = ros::Time::now();
     transformStamped.header.frame_id = "drone";
-    transformStamped.child_frame_id = "target_position";
-    transformStamped.transform.translation.x = marker_position.poses[0].position.z - 0.5; //The target is 0.5 m in front of the marker
+    transformStamped.child_frame_id = "marker";
+    transformStamped.transform.translation.x = marker_position.poses[0].position.z;
     transformStamped.transform.translation.y = -marker_position.poses[0].position.x;
     transformStamped.transform.translation.z = -marker_position.poses[0].position.y;
     tf2::Quaternion q;
@@ -72,6 +74,17 @@ void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg){
     transformStamped.transform.rotation.w = q.w();
 
     br.sendTransform(transformStamped);
+
+    // Transformation from visual marker to target position
+    transformStamped.header.stamp = ros::Time::now();
+    transformStamped.header.frame_id = "marker";
+    transformStamped.child_frame_id = "target_position";
+    transformStamped.transform.translation.x = -0.8; //The target is 0.8 m in front of the marker
+    transformStamped.transform.translation.y = 0;
+    transformStamped.transform.translation.z = 0;
+    transformStamped.transform.rotation = marker_position.poses[0].orientation;
+
+    br.sendTransform(transformStamped);
 }
 
 geometry_msgs::PoseStamped local_position;
@@ -80,7 +93,7 @@ void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
 
     static tf2_ros::TransformBroadcaster br;
 
-    // Transformation from map to drone coordinates
+    // Transformation from map to drone
     geometry_msgs::TransformStamped transformStamped;
     transformStamped.header.stamp = ros::Time::now();
     transformStamped.header.frame_id = "map";
@@ -101,6 +114,8 @@ int main(int argc, char **argv)
 
     // The setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(ROS_RATE);
+
+    static tf2_ros::TransformListener tfListener(tfBuffer);
 
     state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
     marker_pos_sub = nh.subscribe<geometry_msgs::PoseArray>("/whycon/poses", 10, marker_position_cb);
@@ -229,6 +244,7 @@ void turnTowardsMarker(){
             pose_NWU.pose.position.x = local_position.pose.position.x;
             pose_NWU.pose.position.y = local_position.pose.position.y;
             pose_NWU.pose.position.z = local_position.pose.position.z;
+            //pose_NWU.pose.orientation = marker_position.poses[0].orientation;
             pose_NWU.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+rad);
             // Send setpoint for 5 seconds
             for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
@@ -249,9 +265,6 @@ void approachMarker(ros::NodeHandle & nh){
     // The setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(ROS_RATE);
 
-    static tf2_ros::Buffer tfBuffer;
-    static tf2_ros::TransformListener tfListener(tfBuffer);
-
     //nh.setParam("/mavros/setpoint_position/tf/frame_id", "map");
     //nh.setParam("/mavros/setpoint_position/tf/child_frame_id", "target_position");
     //nh.setParam("/mavros/setpoint_position/tf/listen", true);
@@ -261,9 +274,9 @@ void approachMarker(ros::NodeHandle & nh){
         ROS_INFO("Marker found, approaching");
         if (marker_position.poses[0].position.z < 2) {
           ROS_INFO("TODO: Changing orientation");
-          //pose.pose.orientation = marker_pose.poses[0].orientation;
+          //pose_NWU.pose.orientation = marker_position.poses[0].orientation;
         }
-        if (marker_position.poses[0].position.z < 0.6) {
+        if (marker_position.poses[0].position.z < 0.8) {
           ROS_INFO("Close enough");
           break;
         }
@@ -277,6 +290,10 @@ void approachMarker(ros::NodeHandle & nh){
           //pose_NED.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
 
           local_pos_pub.publish(pose_NWU);
+
+          ROS_INFO("Setpoint position: N: %f, W: %f, U: %f", transformStamped.transform.translation.x,
+                   transformStamped.transform.translation.y, transformStamped.transform.translation.z);
+
           //nh.setParam("mavros/setpoint_position/tf/listen", true);
           ros::spinOnce();
           rate.sleep();
@@ -292,6 +309,13 @@ void approachMarker(ros::NodeHandle & nh){
         ros::spinOnce();
         rate.sleep();
       }
+    }
+
+    // Hover for 3 seconds before landing
+    for(int i = 0; ros::ok() && i < 3 * ROS_RATE; ++i){
+      local_pos_pub.publish(pose_NWU);
+      ros::spinOnce();
+      rate.sleep();
     }
 
     //nh.setParam("mavros/setpoint_position/tf/listen", false);
