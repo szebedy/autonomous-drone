@@ -23,6 +23,7 @@
 #define ROS_RATE 20.0
 #define MAX_ATTEMPTS 300
 #define SAFETY_TIME_SEC 3
+#define TURN_STEP_RAD 4/ROS_RATE
 
 ros::Subscriber state_sub;
 ros::Subscriber marker_pos_sub;
@@ -248,7 +249,14 @@ void turnTowardsMarker(){
     ros::Rate rate(ROS_RATE);
     float rad, current_yaw;
 
-    for(int j = 0; ros::ok() && j < 5 * ROS_RATE; ++j){
+    // Turn towards the marker without change of position
+    setpoint_pos_NWU.pose.position.x = local_position.pose.position.x;
+    setpoint_pos_NWU.pose.position.y = local_position.pose.position.y;
+    setpoint_pos_NWU.pose.position.z = local_position.pose.position.z;
+
+    for(int j = 0; ros::ok() && j < 10 * ROS_RATE; ++j){
+        current_yaw = currentYaw();
+
         if (ros::Time::now() - marker_position.header.stamp < ros::Duration(1.0)) {
             // Calculate yaw angle difference of marker in radians
             rad = -atan2f(marker_position.poses[0].position.x, marker_position.poses[0].position.z);
@@ -257,27 +265,24 @@ void turnTowardsMarker(){
                 break;
             }
 
-            current_yaw = currentYaw();
-
             ROS_INFO("Marker found, current yaw: %f, turning %f radians", current_yaw, rad);
-            // Turn towards the marker without change of position
-            setpoint_pos_NWU.pose.position.x = local_position.pose.position.x;
-            setpoint_pos_NWU.pose.position.y = local_position.pose.position.y;
-            setpoint_pos_NWU.pose.position.z = local_position.pose.position.z;
-            //setpoint_pos_NWU.pose.orientation = marker_position.poses[0].orientation;
             setpoint_pos_NWU.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+rad);
-            // Send setpoint for 5 seconds
-            for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
-                setpoint_pos_pub.publish(setpoint_pos_NWU);
-                ros::spinOnce();
-                rate.sleep();
-            }
         } else {
-            ROS_INFO("No marker was found in the last second");
-            ros::spinOnce();
-            rate.sleep();
+            ROS_INFO("No marker was found in the last second, turning around");
+            setpoint_pos_NWU.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+TURN_STEP_RAD);
         }
+        setpoint_pos_pub.publish(setpoint_pos_NWU);
+        ros::spinOnce();
+        rate.sleep();
     }
+
+    // Send setpoint for 2 seconds
+    for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i){
+        setpoint_pos_pub.publish(setpoint_pos_NWU);
+        ros::spinOnce();
+        rate.sleep();
+    }
+
     return;
 }
 
@@ -295,8 +300,8 @@ void approachMarker(ros::NodeHandle & nh){
       if (ros::Time::now() - marker_position.header.stamp < ros::Duration(1.0)) {
         if (marker_position.poses[0].position.z < 1.5) {
           close_enough++;
-          // TODO: Changing orientation
-          //setpoint_pos_NWU.pose.orientation = marker_position.poses[0].orientation;
+          // TODO: Changing orientation. Calulate yaw from marker orientation
+
           if (close_enough > (SAFETY_TIME_SEC * ROS_RATE)) {
             ROS_INFO("Close enough");
             break; // Exit loop and fly to final target
