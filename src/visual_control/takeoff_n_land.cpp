@@ -229,10 +229,10 @@ void takeOff(){
     ROS_INFO("Taking off. Current position: N: %f, W: %f, U: %f", local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z);
 
     // Take off
-    pose_NWU.pose.position.x = 2; //local_position.pose.position.x;
-    pose_NWU.pose.position.y = 2; //local_position.pose.position.y;
-    pose_NWU.pose.position.z = local_position.pose.position.z + FLIGHT_ALTITUDE;
-    pose_NWU.pose.orientation = local_position.pose.orientation;
+    setpoint_pos_NWU.pose.position.x = local_position.pose.position.x;
+    setpoint_pos_NWU.pose.position.y = local_position.pose.position.y;
+    setpoint_pos_NWU.pose.position.z = local_position.pose.position.z + FLIGHT_ALTITUDE;
+    setpoint_pos_NWU.pose.orientation = local_position.pose.orientation;
 
     ROS_INFO("Taking off");
     for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i){

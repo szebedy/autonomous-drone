@@ -1,0 +1,27 @@
+label: "Intel Aero R200"
+id: "camera_rgb_optical_frame"
+cameras:
+- camera:
+    label: camera/rgb/image_rect_mono
+    id: "camera_rgb_optical_frame"
+    line-delay-nanoseconds: 0
+    image_height: 480
+    image_width: 640
+    type: pinhole
+    intrinsics:
+      cols: 1
+      rows: 4
+      data: [627.1682739257812, 633.8917846679688, 328.3178405761719, 264.85052490234375]
+    distortion:
+      type: radial-tangential  
+      parameters:
+        cols: 1
+        rows: 4
+        data: [-0.06627094000577927, 0.02716059796512127, -0.00037734207580797374, -0.0011735913576558232]
+  T_B_C:
+    cols: 4
+    rows: 4
+    data: [0.0, -1.0,  0.0,  0.15,
+           0.0,  0.0, -1.0, -0.05,
+           1.0,  0.0,  0.0,  0.003,
+           0.0,  0.0,  0.0,  1.0]
