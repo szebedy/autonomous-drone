@@ -42,7 +42,7 @@ git submodule update --init --recursive
 ```
 Wait until downloading finish correctly, then run
 ```
-cd ~/catkin_ws/bszebedy_px4
+cd ~/catkin_ws/px4
 make posix_sitl_default gazebo
 ```
 A window will pop up shows a quadcoter. Close the window, go back to the terminal and press Ctrl+C
@@ -59,18 +59,12 @@ run following command so that rosrun can find our new nodes in your ```visual_co
 You have two options for launching the simulation. You can either launch everything in the same window with a launch file, or you can launch each component separately.
 
 ### Launch file
-You need to open two separate terminals (Ctrl+Alt+T, Ctrl+Shift+T)
+You need to open a terminal (Ctrl+Alt+T) and type the following:
 
-Terminal 1:
-```
-cd ~/catkin_ws/
-roscore
-```
-Terminal 2:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
-cd ~/catkin_ws/bszebedy_px4
+cd ~/catkin_ws/px4
 source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/posix_sitl_default
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
@@ -78,32 +72,28 @@ roslaunch visual_control simulation.launch
 ```
 
 ### Run roscore, px4 with mavros, whycon, image_view and visual_control
-You need to open 5 separate terminals in the root of the repository (Ctrl+Alt+T, 4 x Ctrl+Shift+T)
+You need to open 4 separate terminals in the root of the repository (Ctrl+Alt+T, 3 x Ctrl+Shift+T)
+
 
 Terminal 1:
 ```
-cd ~/catkin_ws/
-roscore
-```
-Terminal 2:
-```
-cd ~/catkin_ws/bszebedy_px4
+cd ~/catkin_ws/px4
 source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/posix_sitl_default
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
 roslaunch px4 mavros_posix_sitl.launch
 ```
-Terminal 3:
+Terminal 2:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
 rosrun whycon whycon camera/image_rect_color:=/camera/rgb/image_rect_color camera/camera_info:=/camera/rgb/camera_info _targets:=1 _inner_diameter:=0.09 _outer_diameter:=0.217
 ```
-Terminal 4:
+Terminal 3:
 ```
 rosrun image_view image_view image:=/whycon/image_out
 ```
-Terminal 5:
+Terminal 4:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
@@ -113,14 +103,9 @@ rosrun visual_control takeoff_n_land
 You have two options for launching the code on the Intel Aero RTF drone. You can either launch everything in the same window with a launch file, or you can launch each component separately.
 
 ### Launch file
-You need to open two separate terminals in the root of the repository (Ctrl+Alt+T, Ctrl+Shift+T)
+You need to open a terminal (Ctrl+Alt+T) and type the following:
 
-Terminal 1:
-```
-cd ~/catkin_ws/
-roscore
-```
-Terminal 2:
+
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
@@ -128,29 +113,25 @@ roslaunch visual_control intel_aero.launch
 ```
 
 ### Run roscore, mavros, whycon and visual_control
-You need to open 5 separate terminals in the root of the repository (Ctrl+Alt+T, 4 x Ctrl+Shift+T)
+You need to open 4 separate terminals in the root of the repository (Ctrl+Alt+T, 3 x Ctrl+Shift+T)
+
 
 Terminal 1:
 ```
 cd ~/catkin_ws/
-roscore
-```
-Terminal 2:
-```
-cd ~/catkin_ws/
 roslaunch mavros px4.launch fcu_url:=tcp://127.0.0.1:5760
 ```
-Terminal 3:
+Terminal 2:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
 rosrun whycon whycon camera/image_rect_color:=/camera/rgb/image_rect_color camera/camera_info:=/camera/rgb/camera_info _targets:=1
 ```
-Terminal 4:
+Terminal 3:
 ```
 roslaunch realsense_camera r200_nodelet_rgbd.launch
 ```
-Terminal 5:
+Terminal 4:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
