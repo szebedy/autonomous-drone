@@ -1,0 +1,48 @@
+label: "Intel Aero OV7251"
+#id: 412eab8e4058621f7036b5e765dfe812
+cameras:
+- camera:
+    label: usb_cam/image_raw
+#    id: 54812562fa109c40fe90b29a59dd7798
+    line-delay-nanoseconds: 0
+    image_height: 480
+    image_width: 640
+    type: pinhole
+    intrinsics:
+      cols: 1
+      rows: 4
+      data: [442.091489, 441.934885, 320.839725, 236.037804]
+    distortion:
+      type: radial-tangential
+      parameters:
+        cols: 1
+        rows: 4
+        data: [0.027520, -0.064054, 0.004263, -0.000398]
+  T_B_C:
+    cols: 4
+    rows: 4
+    data: [1.0,  0.0,  0.0,  0.07,
+           0.0, -1.0,  0.0, -0.03,
+           0.0,  0.0, -1.0, -0.045,
+           0.0,  0.0,  0.0,  1.0]
+
+imu_params:
+  delay_imu_cam: 0.0
+  max_imu_delta_t: 0.03
+  acc_max: 176.0
+  omega_max: 7.8
+  sigma_omega_c: 1.22173e-4
+  sigma_acc_c: 1.7658e-3
+  sigma_omega_bias_c: 5e-6
+  sigma_acc_bias_c: 1e-4
+  sigma_integration: 0.0
+  g: 9.8082
+  imu_rate: 50
+
+imu_initialization:
+  velocity: [0.0, 0, 0.0]
+  omega_bias: [0.0, 0, 0.0]
+  acc_bias: [0.0, 0.0, 0.0]
+  velocity_sigma: 2.0
+  omega_bias_sigma: 0.01
+  acc_bias_sigma: 0.1

@@ -1,9 +1,7 @@
 label: "Intel Aero R200"
-id: "camera_rgb_optical_frame"
 cameras:
 - camera:
-    label: camera/rgb/image_rect_mono
-    id: "camera_rgb_optical_frame"
+    label: camera/rgb
     line-delay-nanoseconds: 0
     image_height: 480
     image_width: 640

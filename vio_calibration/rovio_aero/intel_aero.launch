@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<launch>
+  <param name="use_sim_time" value="false"/>
+  <node pkg="rovio" type="rovio_node" name="rovio" output="screen">
+    <param name="filter_config" value="/home/tik/catkin_ws/vio_calibration/rovio_aero/rovio.info"/>
+    <param name="camera0_config" value="/home/tik/catkin_ws/vio_calibration/rovio_aero/r200.yaml"/>
+    <remap from="/cam0/image_raw" to="/camera/rgb/image_rect_mono"/>
+    <remap from="/imu0" to="/mavros/imu/data"/>
+  </node>
+</launch>
