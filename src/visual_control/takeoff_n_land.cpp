@@ -44,7 +44,7 @@ float currentYaw();
 
 bool approaching = false;
 unsigned char close_enough = 0;
-geometry_msgs::PoseStamped setpoint_pos_NWU;
+geometry_msgs::PoseStamped setpoint_pos_ENU;
 ros::Time last_request;
 mavros_msgs::CommandBool arm_cmd;
 tf2_ros::Buffer tfBuffer;
@@ -95,10 +95,10 @@ void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg){
     if (approaching) {
       try {
         transformStamped = tfBuffer.lookupTransform("map", "target_position", ros::Time(0));
-        setpoint_pos_NWU.pose.position.x = transformStamped.transform.translation.x;
-        setpoint_pos_NWU.pose.position.y = transformStamped.transform.translation.y;
-        setpoint_pos_NWU.pose.position.z = transformStamped.transform.translation.z;
-        //setpoint_pos_NWU.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
+        setpoint_pos_ENU.pose.position.x = transformStamped.transform.translation.x;
+        setpoint_pos_ENU.pose.position.y = transformStamped.transform.translation.y;
+        setpoint_pos_ENU.pose.position.z = transformStamped.transform.translation.z;
+        //setpoint_pos_ENU.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
 
         ROS_INFO("Setpoint position: N: %f, W: %f, U: %f", transformStamped.transform.translation.x,
                  transformStamped.transform.translation.y, transformStamped.transform.translation.z);
@@ -180,14 +180,14 @@ void offboardMode(){
 
     ROS_INFO("Switching to OFFBOARD mode");
 
-    setpoint_pos_NWU.pose.position.x = local_position.pose.position.x;
-    setpoint_pos_NWU.pose.position.y = local_position.pose.position.y;
-    setpoint_pos_NWU.pose.position.z = local_position.pose.position.z;
-    setpoint_pos_NWU.pose.orientation = local_position.pose.orientation;
+    setpoint_pos_ENU.pose.position.x = local_position.pose.position.x;
+    setpoint_pos_ENU.pose.position.y = local_position.pose.position.y;
+    setpoint_pos_ENU.pose.position.z = local_position.pose.position.z;
+    setpoint_pos_ENU.pose.orientation = local_position.pose.orientation;
 
     // Send a few setpoints before starting, otherwise px4 will not switch to OFFBOARD mode
     for(int i = 20; ros::ok() && i > 0; --i){
-        setpoint_pos_pub.publish(setpoint_pos_NWU);
+        setpoint_pos_pub.publish(setpoint_pos_ENU);
         ros::spinOnce();
         rate.sleep();
     }
@@ -215,7 +215,7 @@ void offboardMode(){
                 last_request = ros::Time::now();
             }
         }
-        setpoint_pos_pub.publish(setpoint_pos_NWU);
+        setpoint_pos_pub.publish(setpoint_pos_ENU);
         ros::spinOnce();
         rate.sleep();
     }
@@ -229,14 +229,14 @@ void takeOff(){
     ROS_INFO("Taking off. Current position: N: %f, W: %f, U: %f", local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z);
 
     // Take off
-    setpoint_pos_NWU.pose.position.x = local_position.pose.position.x;
-    setpoint_pos_NWU.pose.position.y = local_position.pose.position.y;
-    setpoint_pos_NWU.pose.position.z = local_position.pose.position.z + FLIGHT_ALTITUDE;
-    setpoint_pos_NWU.pose.orientation = local_position.pose.orientation;
+    setpoint_pos_ENU.pose.position.x = local_position.pose.position.x;
+    setpoint_pos_ENU.pose.position.y = local_position.pose.position.y;
+    setpoint_pos_ENU.pose.position.z = local_position.pose.position.z + FLIGHT_ALTITUDE;
+    setpoint_pos_ENU.pose.orientation = local_position.pose.orientation;
 
     ROS_INFO("Taking off");
     for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i){
-        setpoint_pos_pub.publish(setpoint_pos_NWU);
+        setpoint_pos_pub.publish(setpoint_pos_ENU);
         ros::spinOnce();
         rate.sleep();
     }
@@ -250,9 +250,9 @@ void turnTowardsMarker(){
     float rad, current_yaw;
 
     // Turn towards the marker without change of position
-    setpoint_pos_NWU.pose.position.x = local_position.pose.position.x;
-    setpoint_pos_NWU.pose.position.y = local_position.pose.position.y;
-    setpoint_pos_NWU.pose.position.z = local_position.pose.position.z;
+    setpoint_pos_ENU.pose.position.x = local_position.pose.position.x;
+    setpoint_pos_ENU.pose.position.y = local_position.pose.position.y;
+    setpoint_pos_ENU.pose.position.z = local_position.pose.position.z;
 
     for(int j = 0; ros::ok() && j < 10 * ROS_RATE; ++j){
         current_yaw = currentYaw();
@@ -266,19 +266,19 @@ void turnTowardsMarker(){
             }
 
             ROS_INFO("Marker found, current yaw: %f, turning %f radians", current_yaw, rad);
-            setpoint_pos_NWU.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+rad);
+            setpoint_pos_ENU.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+rad);
         } else {
             ROS_INFO("No marker was found in the last second, turning around");
-            setpoint_pos_NWU.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+TURN_STEP_RAD);
+            setpoint_pos_ENU.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+TURN_STEP_RAD);
         }
-        setpoint_pos_pub.publish(setpoint_pos_NWU);
+        setpoint_pos_pub.publish(setpoint_pos_ENU);
         ros::spinOnce();
         rate.sleep();
     }
 
     // Send setpoint for 2 seconds
     for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i){
-        setpoint_pos_pub.publish(setpoint_pos_NWU);
+        setpoint_pos_pub.publish(setpoint_pos_ENU);
         ros::spinOnce();
         rate.sleep();
     }
@@ -308,7 +308,7 @@ void approachMarker(ros::NodeHandle & nh){
           }
         } else {close_enough = 0;}
 
-        setpoint_pos_pub.publish(setpoint_pos_NWU);
+        setpoint_pos_pub.publish(setpoint_pos_ENU);
 
         //nh.setParam("/mavros/setpoint_position/tf/listen", true);
         approaching = true;
@@ -324,7 +324,7 @@ void approachMarker(ros::NodeHandle & nh){
 
     // Publish final setpoint for 4 seconds before landing
     for(int i = 0; ros::ok() && i < 4 * ROS_RATE; ++i){
-      setpoint_pos_pub.publish(setpoint_pos_NWU);
+      setpoint_pos_pub.publish(setpoint_pos_ENU);
       ros::spinOnce();
       rate.sleep();
     }
@@ -348,7 +348,7 @@ void land(){
 
     ROS_INFO("Trying to land");
     while (!(land_client.call(land_cmd) && land_cmd.response.success)){
-        setpoint_pos_pub.publish(setpoint_pos_NWU);
+        setpoint_pos_pub.publish(setpoint_pos_ENU);
         ROS_INFO("Retrying to land");
         ros::spinOnce();
         rate.sleep();
