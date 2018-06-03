@@ -59,8 +59,16 @@ run following command so that rosrun can find our new nodes in your ```visual_co
 You have two options for launching the simulation. You can either launch everything in the same window with a launch file, or you can launch each component separately.
 
 ### Launch file
-You need to open a terminal (Ctrl+Alt+T) and type the following:
+You need to open two terminals (Ctrl+Alt+T, Ctrl+Shift+T) and type the following:
 
+Terminal 1:
+```
+cd ~/svo_ws/
+source ./devel/setup.bash
+rosrun svo_ros intel_aero.launch
+```
+```
+Terminal 2:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
@@ -72,7 +80,7 @@ roslaunch visual_control simulation.launch
 ```
 
 ### Run roscore, px4 with mavros, whycon, image_view and visual_control
-You need to open 4 separate terminals in the root of the repository (Ctrl+Alt+T, 3 x Ctrl+Shift+T)
+You need to open 5 separate terminals in the root of the repository (Ctrl+Alt+T, 4 x Ctrl+Shift+T)
 
 
 Terminal 1:
@@ -95,6 +103,12 @@ rosrun image_view image_view image:=/whycon/image_out
 ```
 Terminal 4:
 ```
+cd ~/svo_ws/
+source ./devel/setup.bash
+rosrun svo_ros intel_aero.launch
+```
+Terminal 5:
+```
 cd ~/catkin_ws/
 source ./devel/setup.bash
 rosrun visual_control takeoff_n_land
@@ -103,9 +117,16 @@ rosrun visual_control takeoff_n_land
 You have two options for launching the code on the Intel Aero RTF drone. You can either launch everything in the same window with a launch file, or you can launch each component separately.
 
 ### Launch file
-You need to open a terminal (Ctrl+Alt+T) and type the following:
+You need to open two terminals (Ctrl+Alt+T, Ctrl+Shift+T) and type the following:
 
 
+Terminal 1:
+```
+cd ~/svo_ws/
+source ./devel/setup.bash
+rosrun svo_ros intel_aero.launch
+```
+Terminal 2:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
@@ -113,7 +134,7 @@ roslaunch visual_control intel_aero.launch
 ```
 
 ### Run roscore, mavros, whycon and visual_control
-You need to open 4 separate terminals in the root of the repository (Ctrl+Alt+T, 3 x Ctrl+Shift+T)
+You need to open 6 separate terminals in the root of the repository (Ctrl+Alt+T, 5 x Ctrl+Shift+T)
 
 
 Terminal 1:
@@ -132,6 +153,16 @@ Terminal 3:
 roslaunch realsense_camera r200_nodelet_rgbd.launch
 ```
 Terminal 4:
+```
+roslaunch usb_cam usb_cam.launch
+```
+Terminal 5:
+```
+cd ~/svo_ws/
+source ./devel/setup.bash
+rosrun svo_ros intel_aero.launch
+```
+Terminal 6:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
