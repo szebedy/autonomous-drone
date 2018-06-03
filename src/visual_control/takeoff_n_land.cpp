@@ -5,6 +5,7 @@
  */
 
 #include <ros/ros.h>
+#include <std_msgs/String.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/TransformStamped.h>
@@ -30,6 +31,7 @@ ros::Subscriber marker_pos_sub;
 ros::Subscriber local_pos_sub;
 
 ros::Publisher setpoint_pos_pub;
+ros::Publisher svo_cmd_pub;
 
 ros::ServiceClient arming_client;
 ros::ServiceClient land_client;
@@ -48,6 +50,7 @@ geometry_msgs::PoseStamped setpoint_pos_ENU;
 ros::Time last_request;
 mavros_msgs::CommandBool arm_cmd;
 tf2_ros::Buffer tfBuffer;
+std_msgs::String svo_quit;
 
 mavros_msgs::State current_state;
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
@@ -144,6 +147,7 @@ int main(int argc, char **argv)
     local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, local_position_cb);
 
     setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
+    svo_cmd_pub = nh.advertise<std_msgs::String>("/svo/remote_key", 10);
 
     arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     land_client = nh.serviceClient<mavros_msgs::CommandTOL>("/mavros/cmd/land");
@@ -219,6 +223,15 @@ void offboardMode(){
         ros::spinOnce();
         rate.sleep();
     }
+
+    ROS_INFO("Disabling SVO");
+
+    svo_quit.data = "r";
+
+    svo_cmd_pub.publish(svo_quit);
+    ros::spinOnce();
+    rate.sleep();
+
     return;
 }
 
