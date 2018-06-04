@@ -52,7 +52,10 @@ Build this ROS package by
 cd ~/catkin_ws
 catkin_make
 ```
-run following command so that rosrun can find our new nodes in your ```visual_control``` package
+Run following command so that rosrun can find our new nodes in your ```visual_control``` package
+```
+source ./devel/setup.bash
+```
 
 # Usage
 ## Simulation
