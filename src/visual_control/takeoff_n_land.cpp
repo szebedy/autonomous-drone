@@ -39,6 +39,7 @@ ros::ServiceClient set_mode_client;
 
 void offboardMode();
 void takeOff();
+void initVIO();
 void turnTowardsMarker();
 void approachMarker(ros::NodeHandle &nh);
 void land();
@@ -50,7 +51,7 @@ geometry_msgs::PoseStamped setpoint_pos_ENU;
 ros::Time last_request;
 mavros_msgs::CommandBool arm_cmd;
 tf2_ros::Buffer tfBuffer;
-std_msgs::String svo_quit;
+std_msgs::String svo_cmd;
 
 mavros_msgs::State current_state;
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
@@ -169,6 +170,8 @@ int main(int argc, char **argv)
 
     takeOff();
 
+    initVIO();
+
     turnTowardsMarker();
 
     approachMarker(nh);
@@ -226,11 +229,12 @@ void offboardMode(){
 
     ROS_INFO("Disabling SVO");
 
-    svo_quit.data = "r";
-
-    svo_cmd_pub.publish(svo_quit);
-    ros::spinOnce();
-    rate.sleep();
+    svo_cmd.data = "r";
+    for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i){
+        svo_cmd_pub.publish(svo_cmd);
+        ros::spinOnce();
+        rate.sleep();
+    }
 
     return;
 }
@@ -288,6 +292,32 @@ void turnTowardsMarker(){
         ros::spinOnce();
         rate.sleep();
     }
+
+    // Send setpoint for 2 seconds
+    for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i){
+        setpoint_pos_pub.publish(setpoint_pos_ENU);
+        ros::spinOnce();
+        rate.sleep();
+    }
+
+    return;
+}
+
+void initVIO() {
+
+    ROS_INFO("Starting SVO");
+
+    svo_cmd.data = "s";
+    for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i){
+        svo_cmd_pub.publish(svo_cmd);
+        ros::spinOnce();
+        rate.sleep();
+    }
+
+    //Translational movement to start odometry
+    setpoint_pos_ENU.pose.position.x = local_position.pose.position.x + FLIGHT_ALTITUDE/4;
+    setpoint_pos_ENU.pose.position.y = local_position.pose.position.y;
+    setpoint_pos_ENU.pose.position.z = local_position.pose.position.z;
 
     // Send setpoint for 2 seconds
     for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i){
