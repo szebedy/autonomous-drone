@@ -304,6 +304,8 @@ void turnTowardsMarker(){
 }
 
 void initVIO() {
+    // The setpoint publishing rate MUST be faster than 2Hz
+    ros::Rate rate(ROS_RATE);
 
     ROS_INFO("Starting SVO");
 

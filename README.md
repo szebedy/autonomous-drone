@@ -65,8 +65,7 @@ Terminal 1:
 ```
 cd ~/svo_ws/
 source ./devel/setup.bash
-rosrun svo_ros intel_aero.launch
-```
+roslaunch svo_ros intel_aero.launch
 ```
 Terminal 2:
 ```
@@ -105,7 +104,7 @@ Terminal 4:
 ```
 cd ~/svo_ws/
 source ./devel/setup.bash
-rosrun svo_ros intel_aero.launch
+roslaunch svo_ros intel_aero.launch
 ```
 Terminal 5:
 ```
@@ -154,6 +153,8 @@ roslaunch realsense_camera r200_nodelet_rgbd.launch
 ```
 Terminal 4:
 ```
+cd ~/catkin_ws/
+source ./devel/setup.bash
 roslaunch usb_cam usb_cam.launch
 ```
 Terminal 5:
