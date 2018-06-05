@@ -6,5 +6,5 @@
   <include file="$(find usb_cam)/launch/usb_cam.launch" />
   <node name="takeoff_n_land" type="takeoff_n_land" pkg="visual_control" output="screen" />
   <node pkg="rosbag" type="record" name="rosbag_record_cam_imu"
-       args="record -o /rosbag/ /usb_cam/image_raw /mavros/imu/data"/>   
+       args="record -o /home/tik/Documents/ /usb_cam/image_raw /mavros/imu/data"/>   
 </launch>
