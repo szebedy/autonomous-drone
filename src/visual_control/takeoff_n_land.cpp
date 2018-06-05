@@ -25,6 +25,9 @@
 #define MAX_ATTEMPTS 300
 #define SAFETY_TIME_SEC 3
 #define TURN_STEP_RAD 4/ROS_RATE
+#define TEST_FLIGHT_DURATION 4 //In seconds per side
+#define TEST_FLIGHT_LENGTH 1.5 //In meters
+#define TEST_FLIGHT_REPEAT 3   //Times
 
 ros::Subscriber state_sub;
 ros::Subscriber marker_pos_sub;
@@ -39,6 +42,8 @@ ros::ServiceClient set_mode_client;
 
 void offboardMode();
 void takeOff();
+void testFlightHorizontal();
+void testFlightVertical();
 void initVIO();
 void turnTowardsMarker();
 void approachMarker(ros::NodeHandle &nh);
@@ -170,11 +175,14 @@ int main(int argc, char **argv)
 
     takeOff();
 
-    initVIO();
+    //testFlightHorizontal();
+    testFlightVertical();
 
-    turnTowardsMarker();
+    //initVIO();
 
-    approachMarker(nh);
+    //turnTowardsMarker();
+
+    //approachMarker(nh);
 
     land();
 
@@ -259,6 +267,83 @@ void takeOff(){
     }
     ROS_INFO("Takeoff finished! Looking for whycon marker");
     return;
+}
+
+
+void testFlightHorizontal() {
+    // The setpoint publishing rate MUST be faster than 2Hz
+    ros::Rate rate(ROS_RATE);
+
+    ROS_INFO("Horizontal test flight");
+
+    for(int i = 0; ros::ok() && i < TEST_FLIGHT_REPEAT; ++i){
+        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i){
+            setpoint_pos_ENU.pose.position.x += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+
+            setpoint_pos_pub.publish(setpoint_pos_ENU);
+            ros::spinOnce();
+            rate.sleep();
+        }
+        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i){
+            setpoint_pos_ENU.pose.position.y += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+
+            setpoint_pos_pub.publish(setpoint_pos_ENU);
+            ros::spinOnce();
+            rate.sleep();
+        }
+        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i){
+            setpoint_pos_ENU.pose.position.x -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+
+            setpoint_pos_pub.publish(setpoint_pos_ENU);
+            ros::spinOnce();
+            rate.sleep();
+        }
+        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i){
+            setpoint_pos_ENU.pose.position.y -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+
+            setpoint_pos_pub.publish(setpoint_pos_ENU);
+            ros::spinOnce();
+            rate.sleep();
+        }
+    }
+}
+
+void testFlightVertical() {
+    // The setpoint publishing rate MUST be faster than 2Hz
+    ros::Rate rate(ROS_RATE);
+
+    ROS_INFO("Vertical test flight");
+
+    for(int i = 0; ros::ok() && i < TEST_FLIGHT_REPEAT; ++i){
+        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i){
+            setpoint_pos_ENU.pose.position.x += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+
+            setpoint_pos_pub.publish(setpoint_pos_ENU);
+            ros::spinOnce();
+            rate.sleep();
+        }
+        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i){
+            setpoint_pos_ENU.pose.position.z += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+
+            setpoint_pos_pub.publish(setpoint_pos_ENU);
+            ros::spinOnce();
+            rate.sleep();
+        }
+        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i){
+            setpoint_pos_ENU.pose.position.x -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+
+            setpoint_pos_pub.publish(setpoint_pos_ENU);
+            ros::spinOnce();
+            rate.sleep();
+        }
+        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i){
+            setpoint_pos_ENU.pose.position.z -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+
+            setpoint_pos_pub.publish(setpoint_pos_ENU);
+            ros::spinOnce();
+            rate.sleep();
+        }
+    }
 }
 
 void turnTowardsMarker(){

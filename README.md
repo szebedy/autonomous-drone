@@ -126,7 +126,7 @@ Terminal 1:
 ```
 cd ~/svo_ws/
 source ./devel/setup.bash
-rosrun svo_ros intel_aero.launch
+roslaunch svo_ros intel_aero.launch
 ```
 Terminal 2:
 ```
@@ -164,7 +164,7 @@ Terminal 5:
 ```
 cd ~/svo_ws/
 source ./devel/setup.bash
-rosrun svo_ros intel_aero.launch
+roslaunch svo_ros intel_aero.launch
 ```
 Terminal 6:
 ```
