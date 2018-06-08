@@ -830,11 +830,12 @@ void UsbCam::init_userp(unsigned int buffer_size)
   }
 }
 
-void UsbCam::init_device(int image_width, int image_height, int framerate)
+void UsbCam::init_device(int image_width, int image_height, int framerate, bool sunny_weather)
 {
   struct v4l2_capability cap;
   struct v4l2_cropcap cropcap;
   struct v4l2_crop crop;
+  struct v4l2_rect rect;
   struct v4l2_format fmt;
   unsigned int min;
   int cameraId = 1;
@@ -896,12 +897,18 @@ void UsbCam::init_device(int image_width, int image_height, int framerate)
 
   CLEAR(cropcap);
 
+  rect.left = 0;
+  rect.top = 0;
+  rect.height = 370;
+  rect.width = 335;
+
   cropcap.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  //cropcap.bounds = rect;
 
   if (0 == xioctl(fd_, VIDIOC_CROPCAP, &cropcap))
   {
     crop.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    crop.c = cropcap.defrect; /* reset to default */
+    crop.c = cropcap.defrect; /* reset to default */ //rect; 
 
     if (-1 == xioctl(fd_, VIDIOC_S_CROP, &crop))
     {
@@ -946,6 +953,24 @@ void UsbCam::init_device(int image_width, int image_height, int framerate)
     ROS_WARN("Couldn't set camera framerate");
   else
     ROS_DEBUG("Set framerate to be %i", framerate);
+
+  if (sunny_weather)
+  {
+    // Manual gain control only works for values between 0 and 127
+    v4l2_control c;
+    c.id = V4L2_CID_GAIN;
+    c.value = 127;
+    if(xioctl(fd_, VIDIOC_S_CTRL, &c) == 0)
+      ROS_INFO("Set gain %d success", c.value);
+    else ROS_INFO("Set gain fail");
+  }
+
+  // None of the auto controls work with the OV7251
+  /*c.id = V4L2_CID_AUTO_WHITE_BALANCE;
+  c.value = true;
+  if(xioctl(fd_, VIDIOC_S_CTRL, &c) == 0)
+      ROS_INFO("Set auto white balance success");
+  else ROS_INFO("Set auto white balance fail");*/
 
   switch (io_)
   {
@@ -998,7 +1023,7 @@ void UsbCam::open_device(void)
 
 void UsbCam::start(const std::string& dev, io_method io_method,
 		   pixel_format pixel_format, int image_width, int image_height,
-		   int framerate)
+		   int framerate, bool sunny_weather)
 {
   camera_dev_ = dev;
 
@@ -1035,7 +1060,7 @@ void UsbCam::start(const std::string& dev, io_method io_method,
   }
 
   open_device();
-  init_device(image_width, image_height, framerate);
+  init_device(image_width, image_height, framerate, sunny_weather);
   start_capturing();
 
   image_ = (camera_image_t *)calloc(1, sizeof(camera_image_t));

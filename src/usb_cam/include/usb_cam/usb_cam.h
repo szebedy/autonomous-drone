@@ -76,7 +76,7 @@ class UsbCam {
 
   // start camera
   void start(const std::string& dev, io_method io, pixel_format pf,
-		    int image_width, int image_height, int framerate);
+		    int image_width, int image_height, int framerate, bool sunny_weather);
   // shutdown camera
   void shutdown(void);
 
@@ -123,7 +123,7 @@ class UsbCam {
   void init_read(unsigned int buffer_size);
   void init_mmap(void);
   void init_userp(unsigned int buffer_size);
-  void init_device(int image_width, int image_height, int framerate);
+  void init_device(int image_width, int image_height, int framerate, bool sunny_weather);
   void close_device(void);
   void open_device(void);
   void grab_image();
