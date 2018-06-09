@@ -25,13 +25,14 @@
 #define MAX_ATTEMPTS 300
 #define SAFETY_TIME_SEC 3
 #define TURN_STEP_RAD 4/ROS_RATE
-#define TEST_FLIGHT_DURATION 4 //In seconds per side
-#define TEST_FLIGHT_LENGTH 1.5 //In meters
+#define TEST_FLIGHT_DURATION 1 //In seconds per side
+#define TEST_FLIGHT_LENGTH 1 //In meters
 #define TEST_FLIGHT_REPEAT 3   //Times
 
 ros::Subscriber state_sub;
 ros::Subscriber marker_pos_sub;
 ros::Subscriber local_pos_sub;
+ros::Subscriber svo_pos_sub;
 
 ros::Publisher setpoint_pos_pub;
 ros::Publisher svo_cmd_pub;
@@ -53,7 +54,9 @@ float currentYaw();
 bool approaching = false;
 unsigned char close_enough = 0;
 geometry_msgs::PoseStamped setpoint_pos_ENU;
+geometry_msgs::PoseStamped svo_init;
 ros::Time last_request;
+ros::Time last_svo_estimate;
 mavros_msgs::CommandBool arm_cmd;
 tf2_ros::Buffer tfBuffer;
 std_msgs::String svo_cmd;
@@ -137,6 +140,25 @@ void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     br.sendTransform(transformStamped);
 }
 
+geometry_msgs::PoseStamped svo_position;
+void svo_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
+    svo_position = *msg;
+
+    static tf2_ros::TransformBroadcaster br;
+
+    // Transformation from map to drone
+    geometry_msgs::TransformStamped transformStamped;
+    transformStamped.header.stamp = last_svo_estimate = ros::Time::now();
+    transformStamped.header.frame_id = "svo_init";
+    transformStamped.child_frame_id = "drone_vision";
+    transformStamped.transform.translation.x = svo_position.pose.position.x;
+    transformStamped.transform.translation.y = svo_position.pose.position.y;
+    transformStamped.transform.translation.z = svo_position.pose.position.z;
+    transformStamped.transform.rotation = svo_position.pose.orientation;
+
+    br.sendTransform(transformStamped);
+}
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "offb_node");
@@ -151,6 +173,7 @@ int main(int argc, char **argv)
     state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
     marker_pos_sub = nh.subscribe<geometry_msgs::PoseArray>("/whycon/poses", 10, marker_position_cb);
     local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, local_position_cb);
+    svo_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/svo/pose_cam/0", 10, svo_position_cb);
 
     setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
     svo_cmd_pub = nh.advertise<std_msgs::String>("/svo/remote_key", 10);
@@ -166,6 +189,8 @@ int main(int argc, char **argv)
         ROS_INFO("connecting to FCT...");
     }
 
+    last_svo_estimate = ros::Time::now();
+
     offboardMode();
 
     // The tf module of mavros does not work currently. See also approachMarker function
@@ -175,10 +200,10 @@ int main(int argc, char **argv)
 
     takeOff();
 
+    initVIO();
+
     //testFlightHorizontal();
     testFlightVertical();
-
-    //initVIO();
 
     //turnTowardsMarker();
 
@@ -269,6 +294,44 @@ void takeOff(){
     return;
 }
 
+void initVIO() {
+    // The setpoint publishing rate MUST be faster than 2Hz
+    ros::Rate rate(ROS_RATE);
+
+    ROS_INFO("Starting SVO");
+
+    svo_cmd.data = "s";
+    for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i){
+        svo_cmd_pub.publish(svo_cmd);
+        ros::spinOnce();
+        rate.sleep();
+    }
+
+    //Translational movement to start odometry
+    for(int j = 0; ros::ok() && j < TEST_FLIGHT_REPEAT && ros::Time::now() - last_svo_estimate > ros::Duration(1.0); ++j){
+        ROS_INFO("Translational movement");
+        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE
+            && ros::Time::now() - last_svo_estimate > ros::Duration(1.0); ++i){
+
+            setpoint_pos_ENU.pose.position.x += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+
+            setpoint_pos_pub.publish(setpoint_pos_ENU);
+            ros::spinOnce();
+            rate.sleep();
+        }
+        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE
+            && ros::Time::now() - last_svo_estimate > ros::Duration(1.0); ++i){
+
+            setpoint_pos_ENU.pose.position.x -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+
+            setpoint_pos_pub.publish(setpoint_pos_ENU);
+            ros::spinOnce();
+            rate.sleep();
+        }
+    }
+
+    return;
+}
 
 void testFlightHorizontal() {
     // The setpoint publishing rate MUST be faster than 2Hz
@@ -276,7 +339,7 @@ void testFlightHorizontal() {
 
     ROS_INFO("Horizontal test flight");
 
-    for(int i = 0; ros::ok() && i < TEST_FLIGHT_REPEAT; ++i){
+    for(int j = 0; ros::ok() && j < TEST_FLIGHT_REPEAT; ++j){
         for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i){
             setpoint_pos_ENU.pose.position.x += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
@@ -314,7 +377,7 @@ void testFlightVertical() {
 
     ROS_INFO("Vertical test flight");
 
-    for(int i = 0; ros::ok() && i < TEST_FLIGHT_REPEAT; ++i){
+    for(int j = 0; ros::ok() && j < TEST_FLIGHT_REPEAT; ++j){
         for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i){
             setpoint_pos_ENU.pose.position.x += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
@@ -377,34 +440,6 @@ void turnTowardsMarker(){
         ros::spinOnce();
         rate.sleep();
     }
-
-    // Send setpoint for 2 seconds
-    for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i){
-        setpoint_pos_pub.publish(setpoint_pos_ENU);
-        ros::spinOnce();
-        rate.sleep();
-    }
-
-    return;
-}
-
-void initVIO() {
-    // The setpoint publishing rate MUST be faster than 2Hz
-    ros::Rate rate(ROS_RATE);
-
-    ROS_INFO("Starting SVO");
-
-    svo_cmd.data = "s";
-    for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i){
-        svo_cmd_pub.publish(svo_cmd);
-        ros::spinOnce();
-        rate.sleep();
-    }
-
-    //Translational movement to start odometry
-    setpoint_pos_ENU.pose.position.x = local_position.pose.position.x + FLIGHT_ALTITUDE/4;
-    setpoint_pos_ENU.pose.position.y = local_position.pose.position.y;
-    setpoint_pos_ENU.pose.position.z = local_position.pose.position.z;
 
     // Send setpoint for 2 seconds
     for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i){
@@ -505,7 +540,6 @@ void land(){
     }
     return;
 }
-
 
 float currentYaw(){
     //Calculate yaw current orientation
