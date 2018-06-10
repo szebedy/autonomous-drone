@@ -35,6 +35,7 @@ ros::Subscriber local_pos_sub;
 ros::Subscriber svo_pos_sub;
 
 ros::Publisher setpoint_pos_pub;
+ros::Publisher vision_pos_pub;
 ros::Publisher svo_cmd_pub;
 
 ros::ServiceClient arming_client;
@@ -52,9 +53,11 @@ void land();
 float currentYaw();
 
 bool approaching = false;
+bool send_vision_estimate = true;
 unsigned char close_enough = 0;
 geometry_msgs::PoseStamped setpoint_pos_ENU;
-geometry_msgs::PoseStamped svo_init;
+geometry_msgs::PoseStamped vision_pos_ENU;
+geometry_msgs::PoseStamped svo_init_pos;
 ros::Time last_request;
 ros::Time last_svo_estimate;
 mavros_msgs::CommandBool arm_cmd;
@@ -112,7 +115,7 @@ void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg){
         setpoint_pos_ENU.pose.position.z = transformStamped.transform.translation.z;
         //setpoint_pos_ENU.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
 
-        ROS_INFO("Setpoint position: N: %f, W: %f, U: %f", transformStamped.transform.translation.x,
+        ROS_INFO("Setpoint position: E: %f, N: %f, U: %f", transformStamped.transform.translation.x,
                  transformStamped.transform.translation.y, transformStamped.transform.translation.z);
       }
       catch (tf2::TransformException &ex){
@@ -145,9 +148,25 @@ void svo_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     svo_position = *msg;
 
     static tf2_ros::TransformBroadcaster br;
-
-    // Transformation from map to drone
     geometry_msgs::TransformStamped transformStamped;
+
+    if (ros::Time::now() - last_svo_estimate > ros::Duration(1.0)) {
+        // svo_position is the first pose message after initialization/recovery, need to set svo_init_pos
+        svo_init_pos = local_position;
+
+        // Transformation from map to svo_init
+        transformStamped.header.stamp = ros::Time::now();
+        transformStamped.header.frame_id = "map";
+        transformStamped.child_frame_id = "svo_init";
+        transformStamped.transform.translation.x = svo_init_pos.pose.position.x;
+        transformStamped.transform.translation.y = svo_init_pos.pose.position.y;
+        transformStamped.transform.translation.z = svo_init_pos.pose.position.z;
+        transformStamped.transform.rotation = svo_init_pos.pose.orientation;
+
+        br.sendTransform(transformStamped);
+    }
+
+    // Transformation from svo_init to drone_vision
     transformStamped.header.stamp = last_svo_estimate = ros::Time::now();
     transformStamped.header.frame_id = "svo_init";
     transformStamped.child_frame_id = "drone_vision";
@@ -157,6 +176,33 @@ void svo_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     transformStamped.transform.rotation = svo_position.pose.orientation;
 
     br.sendTransform(transformStamped);
+
+    if (send_vision_estimate) {
+      try {
+        transformStamped = tfBuffer.lookupTransform("map", "drone_vision", ros::Time(0));
+        //TODO: send vision position estimate to mavros
+        vision_pos_ENU.pose.position.x = transformStamped.transform.translation.x;
+        vision_pos_ENU.pose.position.y = transformStamped.transform.translation.y;
+        vision_pos_ENU.pose.position.z = transformStamped.transform.translation.z;
+
+        double roll, pitch, yaw;
+        tf::Quaternion q(transformStamped.transform.rotation.x,
+                         transformStamped.transform.rotation.y,
+                         transformStamped.transform.rotation.z,
+                         transformStamped.transform.rotation.w);
+        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+        vision_pos_ENU.pose.orientation = tf::createQuaternionMsgFromYaw(yaw); //TODO Check, maybe negate
+
+        vision_pos_pub.publish(vision_pos_ENU);
+        ros::spinOnce();
+
+        ROS_INFO("Vision position: E: %f, N: %f, U: %f, yaw: %f", transformStamped.transform.translation.x,
+                 transformStamped.transform.translation.y, transformStamped.transform.translation.z, yaw);
+      }
+      catch (tf2::TransformException &ex){
+        ROS_ERROR("%s",ex.what());
+      }
+    }
 }
 
 int main(int argc, char **argv)
@@ -176,6 +222,7 @@ int main(int argc, char **argv)
     svo_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/svo/pose_cam/0", 10, svo_position_cb);
 
     setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
+    vision_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);
     svo_cmd_pub = nh.advertise<std_msgs::String>("/svo/remote_key", 10);
 
     arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
