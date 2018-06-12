@@ -7,6 +7,7 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <mavros_msgs/CommandBool.h>
@@ -141,11 +142,14 @@ void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     transformStamped.transform.translation.z = local_position.pose.position.z;
     transformStamped.transform.rotation = local_position.pose.orientation;
 
+    ROS_INFO("Mavros local position: E: %f, N: %f, U: %f", transformStamped.transform.translation.x,
+             transformStamped.transform.translation.y, transformStamped.transform.translation.z);
+
     br.sendTransform(transformStamped);
 }
 
-geometry_msgs::PoseStamped svo_position;
-void svo_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
+geometry_msgs::PoseWithCovarianceStamped svo_position;
+void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg){
     svo_position = *msg;
 
     static tf2_ros::TransformBroadcaster br;
@@ -153,7 +157,19 @@ void svo_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
 
     if (ros::Time::now() - last_svo_estimate > ros::Duration(1.0)) {
         // svo_position is the first pose message after initialization/recovery, need to set svo_init_pos
-        svo_init_pos = local_position;
+        if (ros::Time::now() - local_position.header.stamp < ros::Duration(1.0)) {
+            ROS_INFO("svo_init_pos = local_position");
+            svo_init_pos = local_position;
+        } else {
+            ROS_INFO("svo_init_pos = 0");
+            svo_init_pos.pose.position.x = 0;
+            svo_init_pos.pose.position.y = 0;
+            svo_init_pos.pose.position.z = 0;
+            svo_init_pos.pose.orientation.x = 0;
+            svo_init_pos.pose.orientation.y = 0;
+            svo_init_pos.pose.orientation.z = 0;
+            svo_init_pos.pose.orientation.w = 1;
+        }
 
         // Transformation from map to svo_init
         transformStamped.header.stamp = ros::Time::now();
@@ -171,10 +187,10 @@ void svo_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     transformStamped.header.stamp = last_svo_estimate = ros::Time::now();
     transformStamped.header.frame_id = "svo_init";
     transformStamped.child_frame_id = "drone_vision";
-    transformStamped.transform.translation.x = svo_position.pose.position.x;
-    transformStamped.transform.translation.y = svo_position.pose.position.y;
-    transformStamped.transform.translation.z = svo_position.pose.position.z;
-    transformStamped.transform.rotation = svo_position.pose.orientation;
+    transformStamped.transform.translation.x = svo_position.pose.pose.position.x;
+    transformStamped.transform.translation.y = svo_position.pose.pose.position.y;
+    transformStamped.transform.translation.z = svo_position.pose.pose.position.z;
+    transformStamped.transform.rotation = svo_position.pose.pose.orientation;
 
     br.sendTransform(transformStamped);
 
@@ -185,19 +201,18 @@ void svo_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
         vision_pos_ENU.pose.position.x = transformStamped.transform.translation.x;
         vision_pos_ENU.pose.position.y = transformStamped.transform.translation.y;
         vision_pos_ENU.pose.position.z = transformStamped.transform.translation.z;
-
-        double roll, pitch, yaw;
-        tf::Quaternion q(transformStamped.transform.rotation.x,
-                         transformStamped.transform.rotation.y,
-                         transformStamped.transform.rotation.z,
-                         transformStamped.transform.rotation.w);
-        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
-        vision_pos_ENU.pose.orientation = tf::createQuaternionMsgFromYaw(yaw); //TODO Check, maybe negate
+        vision_pos_ENU.pose.orientation = transformStamped.transform.rotation;
 
         vision_pos_pub.publish(vision_pos_ENU);
         ros::spinOnce();
 
-        ROS_INFO("Vision position: E: %f, N: %f, U: %f, yaw: %f", transformStamped.transform.translation.x,
+        double roll, pitch, yaw;
+        tf::Quaternion q(vision_pos_ENU.pose.orientation.x,
+                         vision_pos_ENU.pose.orientation.y,
+                         vision_pos_ENU.pose.orientation.z,
+                         vision_pos_ENU.pose.orientation.w);
+        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+        ROS_INFO("Vision position lookup: E: %f, N: %f, U: %f, yaw: %f", transformStamped.transform.translation.x,
                  transformStamped.transform.translation.y, transformStamped.transform.translation.z, yaw);
       }
       catch (tf2::TransformException &ex){
@@ -220,7 +235,7 @@ int main(int argc, char **argv)
     state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
     marker_pos_sub = nh.subscribe<geometry_msgs::PoseArray>("/whycon/poses", 10, marker_position_cb);
     local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, local_position_cb);
-    svo_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/svo/pose_cam/0", 10, svo_position_cb);
+    svo_pos_sub = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("/svo/pose_imu", 10, svo_position_cb);
 
     setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
     vision_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);
@@ -257,7 +272,7 @@ int main(int argc, char **argv)
 
     //approachMarker(nh);
 
-    //land();
+    land();
     disarm();
 
     while(ros::ok()) {
