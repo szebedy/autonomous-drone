@@ -50,6 +50,7 @@ void initVIO();
 void turnTowardsMarker();
 void approachMarker(ros::NodeHandle &nh);
 void land();
+void disarm();
 float currentYaw();
 
 bool approaching = false;
@@ -256,7 +257,13 @@ int main(int argc, char **argv)
 
     //approachMarker(nh);
 
-    land();
+    //land();
+    disarm();
+
+    while(ros::ok()) {
+        ros::spinOnce();
+        rate.sleep();
+    }
 
     return 0;
 }
@@ -567,14 +574,21 @@ void land(){
     }
     ROS_INFO("Success");
 
-    // Wait 5 seconds for proper landing
-    for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
+    // Wait 1 second for proper landing
+    for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i){
       ros::spinOnce();
       rate.sleep();
     }
 
-    arm_cmd.request.value = false;
+    return;
+}
+
+void disarm(){
+    // The setpoint publishing rate MUST be faster than 2Hz
+    ros::Rate rate(ROS_RATE);
+
     // Disarm
+    arm_cmd.request.value = false;
     while(ros::ok() && current_state.armed){
         if( current_state.armed && (ros::Time::now() - last_request > ros::Duration(5.0))){
             if( arming_client.call(arm_cmd) && arm_cmd.response.success){
