@@ -17,6 +17,7 @@
 #include <mavros_msgs/PositionTarget.h>
 #include <tf/tf.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 #include <math.h>
@@ -26,9 +27,13 @@
 #define MAX_ATTEMPTS 300
 #define SAFETY_TIME_SEC 3
 #define TURN_STEP_RAD 4/ROS_RATE
-#define TEST_FLIGHT_DURATION 1 //In seconds per side
-#define TEST_FLIGHT_LENGTH 1 //In meters
-#define TEST_FLIGHT_REPEAT 3   //Times
+#define INIT_FLIGHT_DURATION 1.5//In seconds per side
+#define INIT_FLIGHT_LENGTH 1    //In meters
+#define INIT_FLIGHT_REPEAT 5    //Times
+#define TEST_FLIGHT_DURATION 3  //In seconds per side
+#define TEST_FLIGHT_LENGTH 4    //In meters
+#define TEST_FLIGHT_REPEAT 3    //Times
+#define KEEP_ALIVE false
 
 ros::Subscriber state_sub;
 ros::Subscriber marker_pos_sub;
@@ -129,6 +134,7 @@ void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg){
 geometry_msgs::PoseStamped local_position;
 void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     local_position = *msg;
+    static int cnt = 0;
 
     static tf2_ros::TransformBroadcaster br;
 
@@ -142,8 +148,17 @@ void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     transformStamped.transform.translation.z = local_position.pose.position.z;
     transformStamped.transform.rotation = local_position.pose.orientation;
 
-    ROS_INFO("Mavros local position: E: %f, N: %f, U: %f", transformStamped.transform.translation.x,
-             transformStamped.transform.translation.y, transformStamped.transform.translation.z);
+    cnt++;
+    if (cnt % 100 == 0) {
+        double roll, pitch, yaw;
+        tf::Quaternion q(vision_pos_ENU.pose.orientation.x,
+                         vision_pos_ENU.pose.orientation.y,
+                         vision_pos_ENU.pose.orientation.z,
+                         vision_pos_ENU.pose.orientation.w);
+        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+        ROS_INFO("Mavros local position: E: %f, N: %f, U: %f, yaw: %f", transformStamped.transform.translation.x,
+                 transformStamped.transform.translation.y, transformStamped.transform.translation.z, yaw);
+    }
 
     br.sendTransform(transformStamped);
 }
@@ -151,8 +166,10 @@ void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
 geometry_msgs::PoseWithCovarianceStamped svo_position;
 void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg){
     svo_position = *msg;
+    static int cnt = 0;
 
     static tf2_ros::TransformBroadcaster br;
+    static tf2_ros::StaticTransformBroadcaster sbr;
     geometry_msgs::TransformStamped transformStamped;
 
     if (ros::Time::now() - last_svo_estimate > ros::Duration(1.0)) {
@@ -180,7 +197,7 @@ void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& m
         transformStamped.transform.translation.z = svo_init_pos.pose.position.z;
         transformStamped.transform.rotation = svo_init_pos.pose.orientation;
 
-        br.sendTransform(transformStamped);
+        sbr.sendTransform(transformStamped);
     }
 
     // Transformation from svo_init to drone_vision
@@ -195,29 +212,32 @@ void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& m
     br.sendTransform(transformStamped);
 
     if (send_vision_estimate) {
-      try {
-        transformStamped = tfBuffer.lookupTransform("map", "drone_vision", ros::Time(0));
-        //TODO: send vision position estimate to mavros
-        vision_pos_ENU.pose.position.x = transformStamped.transform.translation.x;
-        vision_pos_ENU.pose.position.y = transformStamped.transform.translation.y;
-        vision_pos_ENU.pose.position.z = transformStamped.transform.translation.z;
-        vision_pos_ENU.pose.orientation = transformStamped.transform.rotation;
+        try {
+            // Send vision position estimate to mavros
+            transformStamped = tfBuffer.lookupTransform("map", "drone_vision", ros::Time(0));
+            vision_pos_ENU.pose.position.x = transformStamped.transform.translation.x;
+            vision_pos_ENU.pose.position.y = transformStamped.transform.translation.y;
+            vision_pos_ENU.pose.position.z = transformStamped.transform.translation.z;
+            vision_pos_ENU.pose.orientation = transformStamped.transform.rotation;
 
-        vision_pos_pub.publish(vision_pos_ENU);
-        ros::spinOnce();
+            vision_pos_pub.publish(vision_pos_ENU);
+            ros::spinOnce();
 
-        double roll, pitch, yaw;
-        tf::Quaternion q(vision_pos_ENU.pose.orientation.x,
-                         vision_pos_ENU.pose.orientation.y,
-                         vision_pos_ENU.pose.orientation.z,
-                         vision_pos_ENU.pose.orientation.w);
-        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
-        ROS_INFO("Vision position lookup: E: %f, N: %f, U: %f, yaw: %f", transformStamped.transform.translation.x,
-                 transformStamped.transform.translation.y, transformStamped.transform.translation.z, yaw);
-      }
-      catch (tf2::TransformException &ex){
+            cnt++;
+            if (cnt % 66 == 0) {
+                double roll, pitch, yaw;
+                tf::Quaternion q(vision_pos_ENU.pose.orientation.x,
+                                 vision_pos_ENU.pose.orientation.y,
+                                 vision_pos_ENU.pose.orientation.z,
+                                 vision_pos_ENU.pose.orientation.w);
+                tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+                ROS_INFO("Vision position lookup: E: %f, N: %f, U: %f, yaw: %f", transformStamped.transform.translation.x,
+                         transformStamped.transform.translation.y, transformStamped.transform.translation.z, yaw);
+            }
+        }
+        catch (tf2::TransformException &ex){
         ROS_ERROR("%s",ex.what());
-      }
+        }
     }
 }
 
@@ -275,7 +295,7 @@ int main(int argc, char **argv)
     land();
     disarm();
 
-    while(ros::ok()) {
+    while(ros::ok() && KEEP_ALIVE) {
         ros::spinOnce();
         rate.sleep();
     }
@@ -377,21 +397,21 @@ void initVIO() {
     }
 
     //Translational movement to start odometry
-    for(int j = 0; ros::ok() && j < TEST_FLIGHT_REPEAT && ros::Time::now() - last_svo_estimate > ros::Duration(1.0); ++j){
+    for(int j = 0; ros::ok() && j < INIT_FLIGHT_REPEAT && ros::Time::now() - last_svo_estimate > ros::Duration(1.0); ++j){
         ROS_INFO("Translational movement");
-        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE
+        for(int i = 0; ros::ok() && i < INIT_FLIGHT_DURATION * ROS_RATE
             && ros::Time::now() - last_svo_estimate > ros::Duration(1.0); ++i){
 
-            setpoint_pos_ENU.pose.position.x += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+            setpoint_pos_ENU.pose.position.x += INIT_FLIGHT_LENGTH/INIT_FLIGHT_DURATION/ROS_RATE;
 
             setpoint_pos_pub.publish(setpoint_pos_ENU);
             ros::spinOnce();
             rate.sleep();
         }
-        for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE
+        for(int i = 0; ros::ok() && i < INIT_FLIGHT_DURATION * ROS_RATE
             && ros::Time::now() - last_svo_estimate > ros::Duration(1.0); ++i){
 
-            setpoint_pos_ENU.pose.position.x -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
+            setpoint_pos_ENU.pose.position.x -= INIT_FLIGHT_LENGTH/INIT_FLIGHT_DURATION/ROS_RATE;
 
             setpoint_pos_pub.publish(setpoint_pos_ENU);
             ros::spinOnce();
