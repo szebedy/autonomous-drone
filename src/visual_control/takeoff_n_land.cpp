@@ -22,17 +22,17 @@
 #include <tf2_ros/transform_listener.h>
 #include <math.h>
 
-#define FLIGHT_ALTITUDE 1.0f
+#define FLIGHT_ALTITUDE 1.0
 #define ROS_RATE 20.0
 #define MAX_ATTEMPTS 300
 #define SAFETY_TIME_SEC 3
 #define TURN_STEP_RAD 4/ROS_RATE
-#define INIT_FLIGHT_DURATION 1.5//In seconds per side
-#define INIT_FLIGHT_LENGTH 1    //In meters
-#define INIT_FLIGHT_REPEAT 5    //Times
-#define TEST_FLIGHT_DURATION 3  //In seconds per side
-#define TEST_FLIGHT_LENGTH 4    //In meters
-#define TEST_FLIGHT_REPEAT 3    //Times
+#define INIT_FLIGHT_DURATION 4.0 //In seconds per side
+#define INIT_FLIGHT_LENGTH 1.0   //In meters
+#define INIT_FLIGHT_REPEAT 5     //Times
+#define TEST_FLIGHT_DURATION 3.0 //In seconds per side
+#define TEST_FLIGHT_LENGTH 4.0   //In meters
+#define TEST_FLIGHT_REPEAT 2     //Times
 #define KEEP_ALIVE false
 
 ros::Subscriber state_sub;
@@ -61,10 +61,12 @@ float currentYaw();
 
 bool approaching = false;
 bool send_vision_estimate = true;
+bool svo_running = false;
 unsigned char close_enough = 0;
+geometry_msgs::PoseStamped gps_init_pos;
 geometry_msgs::PoseStamped setpoint_pos_ENU;
-geometry_msgs::PoseStamped vision_pos_ENU;
 geometry_msgs::PoseStamped svo_init_pos;
+geometry_msgs::PoseStamped vision_pos_ENU;
 ros::Time last_request;
 ros::Time last_svo_estimate;
 mavros_msgs::CommandBool arm_cmd;
@@ -285,8 +287,10 @@ int main(int argc, char **argv)
 
     initVIO();
 
-    //testFlightHorizontal();
-    testFlightVertical();
+    if (svo_running) {
+        //testFlightHorizontal();
+        testFlightVertical();
+    }
 
     //turnTowardsMarker();
 
@@ -309,10 +313,7 @@ void offboardMode(){
 
     ROS_INFO("Switching to OFFBOARD mode");
 
-    setpoint_pos_ENU.pose.position.x = local_position.pose.position.x;
-    setpoint_pos_ENU.pose.position.y = local_position.pose.position.y;
-    setpoint_pos_ENU.pose.position.z = local_position.pose.position.z;
-    setpoint_pos_ENU.pose.orientation = local_position.pose.orientation;
+    setpoint_pos_ENU = gps_init_pos = local_position;
 
     // Send a few setpoints before starting, otherwise px4 will not switch to OFFBOARD mode
     for(int i = 20; ros::ok() && i > 0; --i){
@@ -368,10 +369,8 @@ void takeOff(){
     ROS_INFO("Taking off. Current position: N: %f, W: %f, U: %f", local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z);
 
     // Take off
-    setpoint_pos_ENU.pose.position.x = local_position.pose.position.x;
-    setpoint_pos_ENU.pose.position.y = local_position.pose.position.y;
-    setpoint_pos_ENU.pose.position.z = local_position.pose.position.z + FLIGHT_ALTITUDE;
-    setpoint_pos_ENU.pose.orientation = local_position.pose.orientation;
+    setpoint_pos_ENU = gps_init_pos;
+    setpoint_pos_ENU.pose.position.z += FLIGHT_ALTITUDE;
 
     ROS_INFO("Taking off");
     for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i){
@@ -417,6 +416,23 @@ void initVIO() {
             ros::spinOnce();
             rate.sleep();
         }
+    }
+
+    if (ros::Time::now() - last_svo_estimate < ros::Duration(1.0)) {
+        ROS_INFO("SVO initialized successfully");
+        svo_running = true;
+    }
+    else
+        ROS_INFO("SVO initialization failed");
+
+    setpoint_pos_ENU = gps_init_pos;
+    setpoint_pos_ENU.pose.position.z += FLIGHT_ALTITUDE;
+
+    ROS_INFO("Back to takeoff position");
+    for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i){
+        setpoint_pos_pub.publish(setpoint_pos_ENU);
+        ros::spinOnce();
+        rate.sleep();
     }
 
     return;
@@ -609,8 +625,8 @@ void land(){
     }
     ROS_INFO("Success");
 
-    // Wait 1 second for proper landing
-    for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i){
+    // Wait 5 seconds for proper landing
+    for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i){
       ros::spinOnce();
       rate.sleep();
     }
