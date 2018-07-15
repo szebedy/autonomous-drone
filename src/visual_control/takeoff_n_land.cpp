@@ -22,7 +22,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <math.h>
 
-#define FLIGHT_ALTITUDE 1.0
+#define FLIGHT_ALTITUDE 0.5
 #define ROS_RATE 20.0
 #define MAX_ATTEMPTS 300
 #define SAFETY_TIME_SEC 3
@@ -53,8 +53,11 @@ void takeOff();
 void testFlightHorizontal();
 void testFlightVertical();
 void initVIO();
+void vioOff();
+void vioOn();
 void turnTowardsMarker();
 void approachMarker(ros::NodeHandle &nh);
+void hover(int seconds);
 void land();
 void disarm();
 float currentYaw();
@@ -217,6 +220,8 @@ void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& m
         try {
             // Send vision position estimate to mavros
             transformStamped = tfBuffer.lookupTransform("map", "drone_vision", ros::Time(0));
+            vision_pos_ENU.header.stamp = ros::Time::now();
+            vision_pos_ENU.header.frame_id = "map";
             vision_pos_ENU.pose.position.x = transformStamped.transform.translation.x;
             vision_pos_ENU.pose.position.y = transformStamped.transform.translation.y;
             vision_pos_ENU.pose.position.z = transformStamped.transform.translation.z;
@@ -274,23 +279,25 @@ int main(int argc, char **argv)
         ROS_INFO("connecting to FCT...");
     }
 
-    last_svo_estimate = ros::Time::now();
-
     offboardMode();
+
+    //vioOff();
 
     // The tf module of mavros does not work currently. See also approachMarker function
     //nh.setParam("/mavros/local_position/tf/frame_id", "map");
     //nh.setParam("/mavros/local_position/tf/child_frame_id", "drone");
     //nh.setParam("/mavros/local_position/tf/send", true);
 
-    takeOff();
+    //takeOff();
 
-    initVIO();
+    //initVIO();
 
     if (svo_running) {
         //testFlightHorizontal();
-        testFlightVertical();
+        //testFlightVertical();
     }
+
+    hover(15);
 
     //turnTowardsMarker();
 
@@ -312,6 +319,23 @@ void offboardMode(){
     ros::Rate rate(ROS_RATE);
 
     ROS_INFO("Switching to OFFBOARD mode");
+
+    last_svo_estimate = ros::Time::now() - ros::Duration(1.0);
+
+    if (ros::Time::now() - local_position.header.stamp < ros::Duration(1.0)) {
+        ROS_INFO("Local_position available");
+    } else {
+        ROS_INFO("Local_position not available, initializing to 0");
+        local_position.header.stamp = ros::Time::now();
+        local_position.header.frame_id = "map";
+        local_position.pose.position.x = 0;
+        local_position.pose.position.y = 0;
+        local_position.pose.position.z = 0;
+        local_position.pose.orientation.x = 0;
+        local_position.pose.orientation.y = 0;
+        local_position.pose.orientation.z = 0;
+        local_position.pose.orientation.w = 1;
+    }
 
     setpoint_pos_ENU = gps_init_pos = local_position;
 
@@ -349,10 +373,31 @@ void offboardMode(){
         ros::spinOnce();
         rate.sleep();
     }
+}
+
+void vioOff(){
+    // The setpoint publishing rate MUST be faster than 2Hz
+    ros::Rate rate(ROS_RATE);
 
     ROS_INFO("Disabling SVO");
 
     svo_cmd.data = "r";
+    for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i){
+        svo_cmd_pub.publish(svo_cmd);
+        ros::spinOnce();
+        rate.sleep();
+    }
+
+    return;
+}
+
+void vioOn(){
+    // The setpoint publishing rate MUST be faster than 2Hz
+    ros::Rate rate(ROS_RATE);
+
+    ROS_INFO("Starting SVO");
+
+    svo_cmd.data = "s";
     for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i){
         svo_cmd_pub.publish(svo_cmd);
         ros::spinOnce();
@@ -386,14 +431,7 @@ void initVIO() {
     // The setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(ROS_RATE);
 
-    ROS_INFO("Starting SVO");
-
-    svo_cmd.data = "s";
-    for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i){
-        svo_cmd_pub.publish(svo_cmd);
-        ros::spinOnce();
-        rate.sleep();
-    }
+    vioOn();
 
     //Translational movement to start odometry
     for(int j = 0; ros::ok() && j < INIT_FLIGHT_REPEAT && ros::Time::now() - last_svo_estimate > ros::Duration(1.0); ++j){
@@ -602,6 +640,23 @@ void approachMarker(ros::NodeHandle & nh){
     //nh.setParam("/mavros/setpoint_position/tf/listen", false);
     approaching = false;
     ROS_INFO("Marker approached!");
+
+    return;
+}
+
+void hover(int seconds){
+    // The setpoint publishing rate MUST be faster than 2Hz
+    ros::Rate rate(ROS_RATE);
+
+    ROS_INFO("Hovering for %i seconds in position: E: %f, N: %f, U: %f", seconds,
+             setpoint_pos_ENU.pose.position.x,
+             setpoint_pos_ENU.pose.position.y,
+             setpoint_pos_ENU.pose.position.z);
+    for(int i = 0; ros::ok() && i < 15 * ROS_RATE; ++i){
+        setpoint_pos_pub.publish(setpoint_pos_ENU);
+        ros::spinOnce();
+        rate.sleep();
+    }
 
     return;
 }
