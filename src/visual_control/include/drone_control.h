@@ -7,6 +7,8 @@
 #ifndef DRONE_CONTROL_H
 #define DRONE_CONTROL_H
 
+#include "ros_client.h"
+
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -37,37 +39,53 @@
 #define TEST_FLIGHT_REPEAT 2     //Times
 #define KEEP_ALIVE false
 
-void offboardMode();
-void takeOff();
-void testFlightHorizontal();
-void testFlightVertical();
-void initVIO();
-void turnTowardsMarker();
-void approachMarker();
-void land();
-void disarm();
-float currentYaw();
+class DroneControl
+{
+  public:
+    DroneControl();
 
-extern bool approaching;
-extern bool send_vision_estimate;
-extern unsigned char close_enough;
-extern geometry_msgs::PoseStamped setpoint_pos_ENU;
-extern geometry_msgs::PoseStamped vision_pos_ENU;
-extern geometry_msgs::PoseStamped svo_init_pos;
-extern ros::Time last_request;
-extern ros::Time last_svo_estimate;
-extern mavros_msgs::CommandBool arm_cmd;
-extern tf2_ros::Buffer tfBuffer;
-extern std_msgs::String svo_cmd;
+    tf2_ros::Buffer tfBuffer_;
 
-extern mavros_msgs::State current_state;
-void state_cb(const mavros_msgs::State::ConstPtr& msg);
-extern geometry_msgs::PoseArray marker_position;
-void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg);
-extern geometry_msgs::PoseStamped local_position;
-void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg);
-extern geometry_msgs::PoseWithCovarianceStamped svo_position;
-void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg);
+    mavros_msgs::State current_state_;
+    geometry_msgs::PoseArray marker_position_;
+    geometry_msgs::PoseStamped local_position_;
+    geometry_msgs::PoseWithCovarianceStamped svo_position_;
+    void state_cb(const mavros_msgs::State::ConstPtr& msg);
+    void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg);
+    void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg);
+    void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg);
+
+    void offboardMode();
+    void takeOff();
+    void testFlightHorizontal();
+    void testFlightVertical();
+    void initVIO();
+    void vioOff();
+    void vioOn();
+    void turnTowardsMarker();
+    void approachMarker();
+    void hover(int seconds);
+    void land();
+    void disarm();
+
+  private:
+
+    bool approaching_ = false;
+    bool send_vision_estimate_ = true;
+    bool svo_running_ = false;
+    unsigned char close_enough_ = 0;
+    geometry_msgs::PoseStamped setpoint_pos_ENU_;
+    geometry_msgs::PoseStamped vision_pos_ENU_;
+    geometry_msgs::PoseStamped gps_init_pos_;
+    geometry_msgs::PoseStamped svo_init_pos_;
+    ros::Time last_request_;
+    ros::Time last_svo_estimate_;
+    mavros_msgs::CommandBool arm_cmd_;
+    std_msgs::String svo_cmd_;
+    ROSClient rosClient_;
+
+    float currentYaw();
+};
 
 
 #endif /* DRONE_CONTROL_H */

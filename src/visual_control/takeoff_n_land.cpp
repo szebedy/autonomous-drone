@@ -5,40 +5,42 @@
  */
 
 #include "include/drone_control.h"
-#include "include/ros_client.h"
 
 int main(int argc, char **argv)
 {
+  DroneControl drone_control;
+  static tf2_ros::TransformListener tfListener(drone_control.tfBuffer_);
+
   // The setpoint publishing rate MUST be faster than 2Hz
   ros::Rate rate(ROS_RATE);
 
-  static tf2_ros::TransformListener tfListener(tfBuffer);
-
   // Wait for FCU connection
-  while(ros::ok() && current_state.connected)
+  while(ros::ok() && drone_control.current_state_.connected)
   {
     ros::spinOnce();
     rate.sleep();
     ROS_INFO("connecting to FCU...");
   }
 
-  last_svo_estimate = ros::Time::now();
+  drone_control.offboardMode();
 
-  offboardMode();
+  drone_control.vioOff();
 
-  takeOff();
+  drone_control.takeOff();
 
-  initVIO();
+  //drone_control.initVIO();
 
-  //testFlightHorizontal();
-  testFlightVertical();
+  //drone_control.testFlightHorizontal();
+  drone_control.testFlightVertical();
 
-  //turnTowardsMarker();
+  drone_control.hover(10);
 
-  //approachMarker();
+  //drone_control.turnTowardsMarker();
 
-  land();
-  disarm();
+  //drone_control.approachMarker();
+
+  drone_control.land();
+  drone_control.disarm();
 
   while(ros::ok() && KEEP_ALIVE)
   {
