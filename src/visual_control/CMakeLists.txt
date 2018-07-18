@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(visual_control)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+  add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -196,6 +196,6 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
-add_executable(takeoff_n_land takeoff_n_land.cpp drone_control.cpp)
+add_executable(takeoff_n_land takeoff_n_land.cpp drone_control.cpp ros_client.cpp)
 target_link_libraries(takeoff_n_land ${catkin_LIBRARIES})
 

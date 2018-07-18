@@ -17,7 +17,6 @@
 #include <mavros_msgs/CommandTOL.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
-#include <mavros_msgs/PositionTarget.h>
 #include <tf/tf.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/static_transform_broadcaster.h>
@@ -38,26 +37,13 @@
 #define TEST_FLIGHT_REPEAT 2     //Times
 #define KEEP_ALIVE false
 
-extern ros::Subscriber state_sub;
-extern ros::Subscriber marker_pos_sub;
-extern ros::Subscriber local_pos_sub;
-extern ros::Subscriber svo_pos_sub;
-
-extern ros::Publisher setpoint_pos_pub;
-extern ros::Publisher vision_pos_pub;
-extern ros::Publisher svo_cmd_pub;
-
-extern ros::ServiceClient arming_client;
-extern ros::ServiceClient land_client;
-extern ros::ServiceClient set_mode_client;
-
 void offboardMode();
 void takeOff();
 void testFlightHorizontal();
 void testFlightVertical();
 void initVIO();
 void turnTowardsMarker();
-void approachMarker(ros::NodeHandle &nh);
+void approachMarker();
 void land();
 void disarm();
 float currentYaw();
