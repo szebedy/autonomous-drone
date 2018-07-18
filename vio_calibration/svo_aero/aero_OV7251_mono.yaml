@@ -28,7 +28,7 @@ cameras:
 
 imu_params:
   delay_imu_cam: 0.0
-  max_imu_delta_t: 0.03
+  max_imu_delta_t: 0.00625
   acc_max: 176.0
   omega_max: 7.8
   sigma_omega_c: 1.22173e-4
@@ -37,12 +37,12 @@ imu_params:
   sigma_acc_bias_c: 1e-4
   sigma_integration: 0.0
   g: 9.8082
-  imu_rate: 50
+  imu_rate: 160
 
 imu_initialization:
   velocity: [0.0, 0, 0.0]
   omega_bias: [0.0, 0, 0.0]
   acc_bias: [0.0, 0.0, 0.0]
-  velocity_sigma: 2.0
+  velocity_sigma: 1.0
   omega_bias_sigma: 0.01
   acc_bias_sigma: 0.1

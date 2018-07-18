@@ -6,5 +6,6 @@
     <param name="pixel_format" value="grey" />
     <param name="camera_frame_id" value="usb_cam" />
     <param name="io_method" value="userptr"/>
+    <param name="sunny_weather" value="false"/>
   </node>
 </launch>

@@ -56,7 +56,7 @@ public:
   // parameters
   std::string video_device_name_, io_method_name_, pixel_format_name_, camera_name_, camera_info_url_;
   //std::string start_service_name_, start_service_name_;
-  bool streaming_status_;
+  bool streaming_status_, sunny_weather_;
   int image_width_, image_height_, framerate_, exposure_, brightness_, contrast_, saturation_, sharpness_, focus_,
       white_balance_, gain_;
   bool autofocus_, autoexposure_, auto_white_balance_;
@@ -111,6 +111,7 @@ public:
     // enable/disable auto white balance temperature
     node_.param("auto_white_balance", auto_white_balance_, true);
     node_.param("white_balance", white_balance_, 4000);
+    node_.param("sunny_weather", sunny_weather_, false);
 
     // load the camera info
     node_.param("camera_frame_id", img_.header.frame_id, std::string("head_camera"));
@@ -157,7 +158,7 @@ public:
 
     // start the camera
     cam_.start(video_device_name_.c_str(), io_method, pixel_format, image_width_,
-		     image_height_, framerate_);
+		     image_height_, framerate_, sunny_weather_);
 
     // set camera parameters
     if (brightness_ >= 0)
