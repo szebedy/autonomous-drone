@@ -8,19 +8,8 @@
 
 int main(int argc, char **argv)
 {
-  DroneControl drone_control;
-  static tf2_ros::TransformListener tfListener(drone_control.tfBuffer_);
-
-  // The setpoint publishing rate MUST be faster than 2Hz
-  ros::Rate rate(ROS_RATE);
-
-  // Wait for FCU connection
-  while(ros::ok() && drone_control.current_state_.connected)
-  {
-    ros::spinOnce();
-    rate.sleep();
-    ROS_INFO("connecting to FCU...");
-  }
+  ROSClient ros_client(argc, argv);
+  DroneControl drone_control(&ros_client);
 
   drone_control.offboardMode();
 
@@ -31,13 +20,13 @@ int main(int argc, char **argv)
   //drone_control.initVIO();
 
   //drone_control.testFlightHorizontal();
-  drone_control.testFlightVertical();
+  //drone_control.testFlightVertical();
 
-  drone_control.hover(10);
+  //drone_control.hover(10);
 
-  //drone_control.turnTowardsMarker();
+  drone_control.turnTowardsMarker();
 
-  //drone_control.approachMarker();
+  drone_control.approachMarker();
 
   drone_control.land();
   drone_control.disarm();
@@ -45,7 +34,7 @@ int main(int argc, char **argv)
   while(ros::ok() && KEEP_ALIVE)
   {
     ros::spinOnce();
-    rate.sleep();
+    drone_control.rate_->sleep();
   }
 
   return 0;

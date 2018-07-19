@@ -42,8 +42,10 @@
 class DroneControl
 {
   public:
-    DroneControl();
+    DroneControl(ROSClient *ros_client);
 
+    // The setpoint publishing rate MUST be faster than 2Hz
+    ros::Rate *rate_;
     tf2_ros::Buffer tfBuffer_;
 
     mavros_msgs::State current_state_;
@@ -82,7 +84,7 @@ class DroneControl
     ros::Time last_svo_estimate_;
     mavros_msgs::CommandBool arm_cmd_;
     std_msgs::String svo_cmd_;
-    ROSClient rosClient_;
+    ROSClient *ros_client_;
 
     float currentYaw();
 };
