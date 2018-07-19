@@ -1,3 +1,6 @@
+This repository intends to enable autonomous drone delivery with the Intel Aero RTF drone and PX4 autopilot. The code can be executed both on the real drone or simulated on a PC using Gazebo.
+Its core is a robotic operating system (ROS) node, which communicates with the PX4 autopilot through mavros. It uses SVO 2.0 for visual odometry and whycon for visual marker localization.
+
 # Installation
 ## Install ROS
 Open a terminal and then copy and paste the following commands into it. (each block can be copied and pasted at once)
@@ -56,6 +59,10 @@ Run following command so that rosrun can find our new nodes in your ```visual_co
 ```
 source ./devel/setup.bash
 ```
+## Download and install SVO 2.0
+Download the binaries using the following form: http://rpg.ifi.uzh.ch/svo2download.html
+
+Then, extract and install it based on the provided instructions in install.pdf. For consistence with this readme, please name the overlay workspace `~/svo_ws/` instead of `~/svo_install_overlay_ws/`
 
 # Usage
 ## Simulation
