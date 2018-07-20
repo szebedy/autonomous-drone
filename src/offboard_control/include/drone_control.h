@@ -11,38 +11,31 @@
 
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include <mavros_msgs/State.h>
+#include <mavros_msgs/CommandBool.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/TransformStamped.h>
-#include <mavros_msgs/CommandBool.h>
-#include <mavros_msgs/CommandTOL.h>
-#include <mavros_msgs/SetMode.h>
-#include <mavros_msgs/State.h>
-#include <tf/tf.h>
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2_ros/static_transform_broadcaster.h>
-#include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
-#include <math.h>
-
-#define FLIGHT_ALTITUDE 0.5
-#define ROS_RATE 20.0
-#define MAX_ATTEMPTS 300
-#define SAFETY_TIME_SEC 3
-#define TURN_STEP_RAD 4/ROS_RATE
-#define INIT_FLIGHT_DURATION 4.0 //In seconds per side
-#define INIT_FLIGHT_LENGTH 1.0   //In meters
-#define INIT_FLIGHT_REPEAT 5     //Times
-#define TEST_FLIGHT_DURATION 3.0 //In seconds per side
-#define TEST_FLIGHT_LENGTH 4.0   //In meters
-#define TEST_FLIGHT_REPEAT 2     //Times
-#define KEEP_ALIVE false
 
 class DroneControl
 {
   public:
     DroneControl(ROSClient *ros_client);
+
+    static constexpr float FLIGHT_ALTITUDE = 0.5;
+    static constexpr float ROS_RATE = 20.0;
+    static constexpr int   MAX_ATTEMPTS = 300;
+    static constexpr int   SAFETY_TIME_SEC = 3;
+    static constexpr float TURN_STEP_RAD = 4/ROS_RATE;
+    static constexpr float INIT_FLIGHT_DURATION = 4.0; //In seconds per side
+    static constexpr float INIT_FLIGHT_LENGTH = 1.0;   //In meters
+    static constexpr int   INIT_FLIGHT_REPEAT = 5;     //Times
+    static constexpr float TEST_FLIGHT_DURATION = 3.0; //In seconds per side
+    static constexpr float TEST_FLIGHT_LENGTH = 4.0;   //In meters
+    static constexpr int   TEST_FLIGHT_REPEAT = 2;     //Times
+    static constexpr bool  KEEP_ALIVE = false;
 
     // The setpoint publishing rate MUST be faster than 2Hz
     ros::Rate *rate_;
@@ -52,6 +45,7 @@ class DroneControl
     geometry_msgs::PoseArray marker_position_;
     geometry_msgs::PoseStamped local_position_;
     geometry_msgs::PoseWithCovarianceStamped svo_position_;
+    geometry_msgs::TransformStamped transformStamped_;
 
     void state_cb(const mavros_msgs::State::ConstPtr& msg);
     void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg);

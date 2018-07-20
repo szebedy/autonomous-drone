@@ -31,7 +31,7 @@ int main(int argc, char **argv)
   drone_control.land();
   drone_control.disarm();
 
-  while(ros::ok() && KEEP_ALIVE)
+  while(ros::ok() && drone_control.KEEP_ALIVE)
   {
     ros::spinOnce();
     drone_control.rate_->sleep();

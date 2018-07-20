@@ -1,6 +1,14 @@
 #include "include/ros_client.h"
 #include "include/drone_control.h"
 
+#include <mavros_msgs/CommandTOL.h>
+#include <mavros_msgs/SetMode.h>
+#include <tf/tf.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <math.h>
+
 DroneControl::DroneControl(ROSClient *ros_client)
 {
   this->ros_client_ = ros_client;
@@ -24,49 +32,48 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& 
   static tf2_ros::TransformBroadcaster br;
 
   // Transformation from drone to visual marker
-  geometry_msgs::TransformStamped transformStamped;
-  transformStamped.header.stamp = ros::Time::now();
-  transformStamped.header.frame_id = "drone";
-  transformStamped.child_frame_id = "marker";
-  transformStamped.transform.translation.x = marker_position_.poses[0].position.z;
-  transformStamped.transform.translation.y = -marker_position_.poses[0].position.x;
-  transformStamped.transform.translation.z = -marker_position_.poses[0].position.y;
+  transformStamped_.header.stamp = ros::Time::now();
+  transformStamped_.header.frame_id = "drone";
+  transformStamped_.child_frame_id = "marker";
+  transformStamped_.transform.translation.x = marker_position_.poses[0].position.z;
+  transformStamped_.transform.translation.y = -marker_position_.poses[0].position.x;
+  transformStamped_.transform.translation.z = -marker_position_.poses[0].position.y;
   tf2::Quaternion q;
   q.setRPY(0, 0, 0);
-  transformStamped.transform.rotation.x = q.x();
-  transformStamped.transform.rotation.y = q.y();
-  transformStamped.transform.rotation.z = q.z();
-  transformStamped.transform.rotation.w = q.w();
-  br.sendTransform(transformStamped);
+  transformStamped_.transform.rotation.x = q.x();
+  transformStamped_.transform.rotation.y = q.y();
+  transformStamped_.transform.rotation.z = q.z();
+  transformStamped_.transform.rotation.w = q.w();
+  br.sendTransform(transformStamped_);
 
   float target_distance = marker_position_.poses[0].position.z/4; // Target distance is proportional to horizontal distance
   if (target_distance < 1) target_distance = 1; // Minimum of 1 meter
 
   // Transformation from visual marker to target position
-  transformStamped.header.stamp = ros::Time::now();
-  transformStamped.header.frame_id = "marker";
-  transformStamped.child_frame_id = "target_position";
+  transformStamped_.header.stamp = ros::Time::now();
+  transformStamped_.header.frame_id = "marker";
+  transformStamped_.child_frame_id = "target_position";
   if (close_enough_ > (SAFETY_TIME_SEC * ROS_RATE))
-    transformStamped.transform.translation.x = -0.6; //The target is 0.6 m in front of the marker if the drone is close enough
+    transformStamped_.transform.translation.x = -0.6; //The target is 0.6 m in front of the marker if the drone is close enough
   else
-    transformStamped.transform.translation.x = -target_distance;
-  transformStamped.transform.translation.y = 0;
-  transformStamped.transform.translation.z = 0;
-  transformStamped.transform.rotation = marker_position_.poses[0].orientation;
-  br.sendTransform(transformStamped);
+    transformStamped_.transform.translation.x = -target_distance;
+  transformStamped_.transform.translation.y = 0;
+  transformStamped_.transform.translation.z = 0;
+  transformStamped_.transform.rotation = marker_position_.poses[0].orientation;
+  br.sendTransform(transformStamped_);
 
   if (approaching_)
   {
     try
     {
-      transformStamped = tfBuffer_.lookupTransform("map", "target_position", ros::Time(0));
-      setpoint_pos_ENU_.pose.position.x = transformStamped.transform.translation.x;
-      setpoint_pos_ENU_.pose.position.y = transformStamped.transform.translation.y;
-      setpoint_pos_ENU_.pose.position.z = transformStamped.transform.translation.z;
+      transformStamped_ = tfBuffer_.lookupTransform("map", "target_position", ros::Time(0));
+      setpoint_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x;
+      setpoint_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y;
+      setpoint_pos_ENU_.pose.position.z = transformStamped_.transform.translation.z;
       //setpoint_pos_ENU.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
 
-      ROS_INFO("Setpoint position: E: %f, N: %f, U: %f", transformStamped.transform.translation.x,
-               transformStamped.transform.translation.y, transformStamped.transform.translation.z);
+      ROS_INFO("Setpoint position: E: %f, N: %f, U: %f", transformStamped_.transform.translation.x,
+               transformStamped_.transform.translation.y, transformStamped_.transform.translation.z);
     }
     catch (tf2::TransformException &ex)
     {
@@ -83,23 +90,22 @@ void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr&
   static tf2_ros::TransformBroadcaster br;
 
   // Transformation from map to drone
-  geometry_msgs::TransformStamped transformStamped;
-  transformStamped.header.stamp = ros::Time::now();
-  transformStamped.header.frame_id = "map";
-  transformStamped.child_frame_id = "drone";
-  transformStamped.transform.translation.x = local_position_.pose.position.x;
-  transformStamped.transform.translation.y = local_position_.pose.position.y;
-  transformStamped.transform.translation.z = local_position_.pose.position.z;
-  transformStamped.transform.rotation = local_position_.pose.orientation;
+  transformStamped_.header.stamp = ros::Time::now();
+  transformStamped_.header.frame_id = "map";
+  transformStamped_.child_frame_id = "drone";
+  transformStamped_.transform.translation.x = local_position_.pose.position.x;
+  transformStamped_.transform.translation.y = local_position_.pose.position.y;
+  transformStamped_.transform.translation.z = local_position_.pose.position.z;
+  transformStamped_.transform.rotation = local_position_.pose.orientation;
 
   cnt++;
   if (cnt % 100 == 0) \
   {
-    ROS_INFO("Mavros local position: E: %f, N: %f, U: %f, yaw: %f", transformStamped.transform.translation.x,
-             transformStamped.transform.translation.y, transformStamped.transform.translation.z, currentYaw());
+    ROS_INFO("Mavros local position: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
+             transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, currentYaw());
   }
 
-  br.sendTransform(transformStamped);
+  br.sendTransform(transformStamped_);
 }
 
 void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
@@ -109,7 +115,6 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
 
   static tf2_ros::TransformBroadcaster br;
   static tf2_ros::StaticTransformBroadcaster sbr;
-  geometry_msgs::TransformStamped transformStamped;
 
   if (ros::Time::now() - last_svo_estimate_ > ros::Duration(1.0))
   {
@@ -132,40 +137,40 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
     }
 
     // Transformation from map to svo_init
-    transformStamped.header.stamp = ros::Time::now();
-    transformStamped.header.frame_id = "map";
-    transformStamped.child_frame_id = "svo_init";
-    transformStamped.transform.translation.x = svo_init_pos_.pose.position.x;
-    transformStamped.transform.translation.y = svo_init_pos_.pose.position.y;
-    transformStamped.transform.translation.z = svo_init_pos_.pose.position.z;
-    transformStamped.transform.rotation = svo_init_pos_.pose.orientation;
+    transformStamped_.header.stamp = ros::Time::now();
+    transformStamped_.header.frame_id = "map";
+    transformStamped_.child_frame_id = "svo_init";
+    transformStamped_.transform.translation.x = svo_init_pos_.pose.position.x;
+    transformStamped_.transform.translation.y = svo_init_pos_.pose.position.y;
+    transformStamped_.transform.translation.z = svo_init_pos_.pose.position.z;
+    transformStamped_.transform.rotation = svo_init_pos_.pose.orientation;
 
-    sbr.sendTransform(transformStamped);
+    sbr.sendTransform(transformStamped_);
   }
 
   // Transformation from svo_init to drone_vision
-  transformStamped.header.stamp = last_svo_estimate_ = ros::Time::now();
-  transformStamped.header.frame_id = "svo_init";
-  transformStamped.child_frame_id = "drone_vision";
-  transformStamped.transform.translation.x = svo_position_.pose.pose.position.x;
-  transformStamped.transform.translation.y = svo_position_.pose.pose.position.y;
-  transformStamped.transform.translation.z = svo_position_.pose.pose.position.z;
-  transformStamped.transform.rotation = svo_position_.pose.pose.orientation;
+  transformStamped_.header.stamp = last_svo_estimate_ = ros::Time::now();
+  transformStamped_.header.frame_id = "svo_init";
+  transformStamped_.child_frame_id = "drone_vision";
+  transformStamped_.transform.translation.x = svo_position_.pose.pose.position.x;
+  transformStamped_.transform.translation.y = svo_position_.pose.pose.position.y;
+  transformStamped_.transform.translation.z = svo_position_.pose.pose.position.z;
+  transformStamped_.transform.rotation = svo_position_.pose.pose.orientation;
 
-  br.sendTransform(transformStamped);
+  br.sendTransform(transformStamped_);
 
   if (send_vision_estimate_)
   {
     try
     {
       // Send vision position estimate to mavros
-      transformStamped = tfBuffer_.lookupTransform("map", "drone_vision", ros::Time(0));
+      transformStamped_ = tfBuffer_.lookupTransform("map", "drone_vision", ros::Time(0));
       vision_pos_ENU_.header.stamp = ros::Time::now();
       vision_pos_ENU_.header.frame_id = "map";
-      vision_pos_ENU_.pose.position.x = transformStamped.transform.translation.x;
-      vision_pos_ENU_.pose.position.y = transformStamped.transform.translation.y;
-      vision_pos_ENU_.pose.position.z = transformStamped.transform.translation.z;
-      vision_pos_ENU_.pose.orientation = transformStamped.transform.rotation;
+      vision_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x;
+      vision_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y;
+      vision_pos_ENU_.pose.position.z = transformStamped_.transform.translation.z;
+      vision_pos_ENU_.pose.orientation = transformStamped_.transform.rotation;
 
       ros_client_->vision_pos_pub_.publish(vision_pos_ENU_);
       ros::spinOnce();
@@ -179,8 +184,8 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
                          vision_pos_ENU_.pose.orientation.z,
                          vision_pos_ENU_.pose.orientation.w);
         tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
-        ROS_INFO("Vision position lookup: E: %f, N: %f, U: %f, yaw: %f", transformStamped.transform.translation.x,
-                 transformStamped.transform.translation.y, transformStamped.transform.translation.z, (float)yaw);
+        ROS_INFO("Vision position lookup: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
+                 transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, (float)yaw);
       }
     }
     catch (tf2::TransformException &ex)
