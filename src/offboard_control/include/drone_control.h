@@ -52,6 +52,7 @@ class DroneControl
     geometry_msgs::PoseArray marker_position_;
     geometry_msgs::PoseStamped local_position_;
     geometry_msgs::PoseWithCovarianceStamped svo_position_;
+
     void state_cb(const mavros_msgs::State::ConstPtr& msg);
     void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg);
     void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg);
@@ -71,19 +72,22 @@ class DroneControl
     void disarm();
 
   private:
-
     bool approaching_ = false;
     bool send_vision_estimate_ = true;
     bool svo_running_ = false;
     unsigned char close_enough_ = 0;
+
     geometry_msgs::PoseStamped setpoint_pos_ENU_;
     geometry_msgs::PoseStamped vision_pos_ENU_;
     geometry_msgs::PoseStamped gps_init_pos_;
     geometry_msgs::PoseStamped svo_init_pos_;
+
     ros::Time last_request_;
     ros::Time last_svo_estimate_;
+
     mavros_msgs::CommandBool arm_cmd_;
     std_msgs::String svo_cmd_;
+
     ROSClient *ros_client_;
 
     float currentYaw();

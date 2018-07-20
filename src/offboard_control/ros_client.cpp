@@ -14,7 +14,7 @@
 
 ROSClient::ROSClient(int &argc, char **argv)
 {
-  ros::init(argc, argv, "offb_node");
+  ros::init(argc, argv, "offboard_ctrl");
   this->nh_ = new ros::NodeHandle();
 }
 

@@ -1,7 +1,7 @@
 /**
- * @file offb_node.cpp
- * @brief offboard node, written with mavros version 0.26.0, px4 flight
- * stack 1.8.0 and tested in Gazebo SITL
+ * @file main.cpp
+ * @brief offboard control node, written with mavros version 0.26.0,
+ * px4 flight stack 1.8.0 and tested on Intel Aero RTF and in Gazebo SITL
  */
 
 #include "include/drone_control.h"

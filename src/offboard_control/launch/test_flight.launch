@@ -4,7 +4,7 @@
     <param name="system_id" value="2" />
   </include>
   <include file="$(find usb_cam)/launch/usb_cam.launch" />
-  <node name="takeoff_n_land" type="takeoff_n_land" pkg="visual_control" output="screen" />
+  <node name="offboard_control" type="offboard_control" pkg="offboard_control" output="screen" />
   <node pkg="rosbag" type="record" name="rosbag_record_cam_imu"
        args="record -o /home/tik/Documents/ /usb_cam/image_raw /mavros/imu/data"/>   
 </launch>

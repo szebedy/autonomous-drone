@@ -1,3 +1,5 @@
+# Description
+
 This repository intends to enable autonomous drone delivery with the Intel Aero RTF drone and PX4 autopilot. The code can be executed both on the real drone or simulated on a PC using Gazebo.
 Its core is a robotic operating system (ROS) node, which communicates with the PX4 autopilot through mavros. It uses SVO 2.0 for visual odometry and whycon for visual marker localization.
 
@@ -55,7 +57,7 @@ Build this ROS package by
 cd ~/catkin_ws
 catkin_make
 ```
-Run following command so that rosrun can find our new nodes in your ```visual_control``` package
+Run following command so that rosrun can find our new nodes in your ```offboard_control``` package
 ```
 source ./devel/setup.bash
 ```
@@ -85,10 +87,10 @@ cd ~/catkin_ws/px4
 source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/posix_sitl_default
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
-roslaunch visual_control simulation.launch
+roslaunch offboard_control simulation.launch
 ```
 
-### Run roscore, px4 with mavros, whycon, image_view and visual_control
+### Run roscore, px4 with mavros, whycon, image_view and offboard_control
 You need to open 5 separate terminals in the root of the repository (Ctrl+Alt+T, 4 x Ctrl+Shift+T)
 
 
@@ -120,7 +122,7 @@ Terminal 5:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
-rosrun visual_control takeoff_n_land
+rosrun offboard_control offboard_control
 ```
 ## Intel Aero RTF drone
 You have two options for launching the code on the Intel Aero RTF drone. You can either launch everything in the same window with a launch file, or you can launch each component separately.
@@ -139,10 +141,10 @@ Terminal 2:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
-roslaunch visual_control intel_aero.launch
+roslaunch offboard_control intel_aero.launch
 ```
 
-### Run roscore, mavros, whycon and visual_control
+### Run roscore, mavros, whycon and offboard_control
 You need to open 6 separate terminals in the root of the repository (Ctrl+Alt+T, 5 x Ctrl+Shift+T)
 
 
@@ -177,5 +179,5 @@ Terminal 6:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
-rosrun visual_control takeoff_n_land
+rosrun offboard_control offboard_control
 ```

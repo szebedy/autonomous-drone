@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>visual_control</name>
-  <version>0.0.0</version>
-  <description>The visual_control package</description>
+  <name>offboard_control</name>
+  <version>0.0.1</version>
+  <description>Autonomous offboard control package for the Intel Aero RTF drone</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
