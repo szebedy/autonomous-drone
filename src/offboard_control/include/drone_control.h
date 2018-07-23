@@ -19,6 +19,8 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <tf2_ros/transform_listener.h>
 
+class ROSClient; // Forward declaration because of circular reference
+
 class DroneControl
 {
   public:
@@ -47,10 +49,10 @@ class DroneControl
     geometry_msgs::PoseWithCovarianceStamped svo_position_;
     geometry_msgs::TransformStamped transformStamped_;
 
-    void state_cb(const mavros_msgs::State::ConstPtr& msg);
-    void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg);
-    void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg);
-    void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg);
+    void state_cb(const mavros_msgs::State::ConstPtr &msg);
+    void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &msg);
+    void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
+    void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg);
 
     void offboardMode();
     void takeOff();

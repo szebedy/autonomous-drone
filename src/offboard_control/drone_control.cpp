@@ -1,4 +1,3 @@
-#include "include/ros_client.h"
 #include "include/drone_control.h"
 
 #include <mavros_msgs/CommandTOL.h>
@@ -20,12 +19,12 @@ DroneControl::DroneControl(ROSClient *ros_client)
   static tf2_ros::TransformListener tfListener(tfBuffer_);
 }
 
-void DroneControl::state_cb(const mavros_msgs::State::ConstPtr& msg)
+void DroneControl::state_cb(const mavros_msgs::State::ConstPtr &msg)
 {
   current_state_ = *msg;
 }
 
-void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& msg)
+void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &msg)
 {
   marker_position_ = *msg;
 
@@ -82,7 +81,7 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr& 
   }
 }
 
-void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
+void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
   local_position_ = *msg;
   static int cnt = 0;
@@ -108,7 +107,7 @@ void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr&
   br.sendTransform(transformStamped_);
 }
 
-void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
+void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg)
 {
   svo_position_ = *msg;
   static int cnt = 0;

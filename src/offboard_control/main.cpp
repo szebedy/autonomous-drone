@@ -5,6 +5,7 @@
  */
 
 #include "include/drone_control.h"
+#include "include/ros_client.h"
 
 int main(int argc, char **argv)
 {

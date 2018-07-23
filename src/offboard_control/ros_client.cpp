@@ -1,5 +1,4 @@
 #include "include/ros_client.h"
-#include "include/drone_control.h"
 
 #include <ros/ros.h>
 #include <mavros_msgs/CommandBool.h>
@@ -18,13 +17,13 @@ ROSClient::ROSClient(int &argc, char **argv)
   this->nh_ = new ros::NodeHandle();
 }
 
-void ROSClient::init(DroneControl *drone_control)
+void ROSClient::init(DroneControl *const drone_control)
 {
-
   state_sub_ = nh_->subscribe<mavros_msgs::State>("/mavros/state", 10, &DroneControl::state_cb, drone_control);
   marker_pos_sub_ = nh_->subscribe<geometry_msgs::PoseArray>("/whycon/poses", 10, &DroneControl::marker_position_cb, drone_control);
   local_pos_sub_ = nh_->subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, &DroneControl::local_position_cb, drone_control);
   svo_pos_sub_ = nh_->subscribe<geometry_msgs::PoseWithCovarianceStamped>("/svo/pose_imu", 10, &DroneControl::svo_position_cb, drone_control);
+  depth_cam_sub_ = nh_->subscribe<sensor_msgs::Image>("/camera/depth/image_raw", 10, &ROSClient::depth_cam_cb, this);
 
   setpoint_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
   vision_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);
@@ -41,8 +40,23 @@ void ROSClient::init(DroneControl *drone_control)
   //nh_->setParam("/mavros/local_position/tf/send", true);
 }
 
-void ROSClient::publishSetpoint(const geometry_msgs::PoseStamped &setpoint_pos_ENU) const
+void ROSClient::depth_cam_cb(const sensor_msgs::Image::ConstPtr &msg)
 {
-  setpoint_pos_pub_.publish(setpoint_pos_ENU);
-  ros::spinOnce();
+  if (collision_avoid_.avoid_)
+  {
+    depth_cam_img_ = *msg;
+  }
+}
+
+void ROSClient::publishSetpoint(const geometry_msgs::PoseStamped &setpoint_pos_ENU)
+{
+  if (collision_avoid_.avoid_)
+  {
+    collision_avoid_.avoid(setpoint_pos_ENU, depth_cam_img_);
+  }
+  else
+  {
+    setpoint_pos_pub_.publish(setpoint_pos_ENU);
+    ros::spinOnce();
+  }
 }
