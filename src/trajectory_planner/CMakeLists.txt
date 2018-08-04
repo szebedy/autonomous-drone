@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(ewok_collision)
+project(trajectory_planner)
 
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
@@ -15,8 +15,8 @@ include_directories(${EIGEN3_INCLUDE_DIR} ${OCTOMAP_INCLUDE_DIRS})
 
 catkin_simple()
 
-#cs_add_executable(collision_avoid src/collision_avoid.cpp)
-#target_link_libraries(collision_avoid ${OCTOMAP_LIBRARIES})
+cs_add_executable(trajectory_planner src/trajectory_planner.cpp)
+target_link_libraries(trajectory_planner ${OCTOMAP_LIBRARIES})
 
 cs_install()
 cs_export()

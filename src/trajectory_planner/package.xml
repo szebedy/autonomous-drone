@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>ewok_collision</name>
+  <name>trajectory_planner</name>
   <version>0.0.0</version>
-  <description>Collision avoidance node</description>
+  <description>Trajectory planner and collision avoidance node using ewok created by Vladyslav Usenko</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
