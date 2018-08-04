@@ -24,24 +24,48 @@
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <ewok/ed_ring_buffer.h>
+#include <sensor_msgs/Image.h>
 
 
 static const int POW = 6;
 static const int N = (1 << POW);
 
 ros::Subscriber local_pos_sub;
+ros::Subscriber endpoint_pos_sub;
+ros::Subscriber depth_cam_sub;
+
+ros::Publisher setpoint_pos_pub;
+
+geometry_msgs::PoseStamped endpoint_position;
+void endpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
+{
+    endpoint_position = *msg;
+}
+
+sensor_msgs::Image depth_cam_img;
+void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
+{
+  depth_cam_img = *msg;
+}
 
 geometry_msgs::PoseStamped local_position;
-void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
+void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
+{
     local_position = *msg;
 }
+
 
 int main(int argc, char** argv) {
 
     ros::init(argc, argv, "collision_avoid");
     ros::NodeHandle nh;
 
-    local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/ewok/setpoint_position/local", 10, local_position_cb);
+    endpoint_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/ewok/endpoint_position", 10, endpoint_position_cb);
+    local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, local_position_cb);
+    depth_cam_sub = nh.subscribe<sensor_msgs::Image>("/camera/depth/image_raw", 10, depth_cam_cb);
+
+    setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
+
 
     //ros::Publisher occ_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/occupied", 1, true);
     //ros::Publisher free_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/free", 1, true);
