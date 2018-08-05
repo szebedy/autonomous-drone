@@ -31,7 +31,7 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
   static tf2_ros::TransformBroadcaster br;
 
   // Transformation from drone to visual marker
-  transformStamped_.header.stamp = ros::Time::now();
+  transformStamped_.header.stamp = marker_position_.header.stamp;
   transformStamped_.header.frame_id = "drone";
   transformStamped_.child_frame_id = "marker";
   transformStamped_.transform.translation.x = marker_position_.poses[0].position.z;
@@ -49,7 +49,7 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
   if (target_distance < 1) target_distance = 1; // Minimum of 1 meter
 
   // Transformation from visual marker to target position
-  transformStamped_.header.stamp = ros::Time::now();
+  transformStamped_.header.stamp = marker_position_.header.stamp;
   transformStamped_.header.frame_id = "marker";
   transformStamped_.child_frame_id = "target_position";
   if (close_enough_ > (SAFETY_TIME_SEC * ROS_RATE))
@@ -89,7 +89,7 @@ void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr 
   static tf2_ros::TransformBroadcaster br;
 
   // Transformation from map to drone
-  transformStamped_.header.stamp = ros::Time::now();
+  transformStamped_.header.stamp = local_position_.header.stamp;
   transformStamped_.header.frame_id = "map";
   transformStamped_.child_frame_id = "drone";
   transformStamped_.transform.translation.x = local_position_.pose.position.x;
@@ -136,7 +136,7 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
     }
 
     // Transformation from map to svo_init
-    transformStamped_.header.stamp = ros::Time::now();
+    transformStamped_.header.stamp = svo_position_.header.stamp;
     transformStamped_.header.frame_id = "map";
     transformStamped_.child_frame_id = "svo_init";
     transformStamped_.transform.translation.x = svo_init_pos_.pose.position.x;
@@ -148,7 +148,7 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
   }
 
   // Transformation from svo_init to drone_vision
-  transformStamped_.header.stamp = last_svo_estimate_ = ros::Time::now();
+  transformStamped_.header.stamp = last_svo_estimate_ = svo_position_.header.stamp;
   transformStamped_.header.frame_id = "svo_init";
   transformStamped_.child_frame_id = "drone_vision";
   transformStamped_.transform.translation.x = svo_position_.pose.pose.position.x;
@@ -164,7 +164,7 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
     {
       // Send vision position estimate to mavros
       transformStamped_ = tfBuffer_.lookupTransform("map", "drone_vision", ros::Time(0));
-      vision_pos_ENU_.header.stamp = ros::Time::now();
+      vision_pos_ENU_.header.stamp = svo_position_.header.stamp;
       vision_pos_ENU_.header.frame_id = "map";
       vision_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x;
       vision_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y;
