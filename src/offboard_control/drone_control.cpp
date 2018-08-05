@@ -172,7 +172,6 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
       vision_pos_ENU_.pose.orientation = transformStamped_.transform.rotation;
 
       ros_client_->vision_pos_pub_.publish(vision_pos_ENU_);
-      ros::spinOnce();
 
       cnt++;
       if (cnt % 66 == 0)

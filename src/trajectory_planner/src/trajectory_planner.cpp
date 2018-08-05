@@ -22,13 +22,24 @@
 */
 
 #include <ros/ros.h>
+#include <Eigen/Core>
 #include <geometry_msgs/PoseStamped.h>
 #include <ewok/ed_ring_buffer.h>
 #include <sensor_msgs/Image.h>
+#include <cholmod.h>
+
+#include <ewok/polynomial_3d_optimization.h>
+#include <ewok/uniform_bspline_3d_optimization.h>
 
 
 static const int POW = 6;
-static const int N = (1 << POW);
+//static const int N = (1 << POW);
+static const double dt = 0.5;
+static const int num_opt_points = 7;
+static const double max_velocity = 0.3;
+static const double max_acceleration = 0.5;
+static const double resolution = 0.1;
+static const double distance_threshold = 0.3;
 
 ros::Subscriber local_pos_sub;
 ros::Subscriber endpoint_pos_sub;
@@ -37,82 +48,70 @@ ros::Subscriber depth_cam_sub;
 ros::Publisher setpoint_pos_pub;
 
 geometry_msgs::PoseStamped endpoint_position;
+geometry_msgs::PoseStamped local_position;
+sensor_msgs::Image depth_cam_img;
+
+ewok::PolynomialTrajectory3D<10>::Ptr traj;
+ewok::EuclideanDistanceRingBuffer<POW>::Ptr edrb;
+ewok::UniformBSpline3DOptimization<6>::Ptr spline_optimization;
+
 void endpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
-    endpoint_position = *msg;
+  endpoint_position = *msg;
+
+  // Set up desired trajectory
+  Eigen::Vector3d start_point(local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z),
+                  end_point(endpoint_position.pose.position.x, endpoint_position.pose.position.y, endpoint_position.pose.position.z);
+
+  Eigen::Vector4d limits(max_velocity, max_acceleration, 0, 0);
+
+  ewok::Polynomial3DOptimization<10> to(limits);
+  typename ewok::Polynomial3DOptimization<10>::Vector3Array path;
+  path.push_back(start_point);
+  path.push_back(end_point);
+
+  traj = to.computeTrajectory(path);
+
+  spline_optimization.reset(new ewok::UniformBSpline3DOptimization<6>(traj, dt));
+
+  spline_optimization->setNumControlPointsOptimized(num_opt_points);
+  spline_optimization->setDistanceBuffer(edrb);
+  spline_optimization->setDistanceThreshold(distance_threshold);
+  spline_optimization->setLimits(limits);
+
 }
 
-sensor_msgs::Image depth_cam_img;
 void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
 {
   depth_cam_img = *msg;
 }
 
-geometry_msgs::PoseStamped local_position;
 void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
-    local_position = *msg;
+  local_position = *msg;
 }
 
+int main(int argc, char** argv)
+{
+  ros::init(argc, argv, "collision_avoid");
+  ros::NodeHandle nh;
 
-int main(int argc, char** argv) {
+  endpoint_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/ewok/endpoint_position", 10, endpoint_position_cb);
+  local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, local_position_cb);
+  depth_cam_sub = nh.subscribe<sensor_msgs::Image>("/camera/depth/image_raw", 10, depth_cam_cb);
 
-    ros::init(argc, argv, "collision_avoid");
-    ros::NodeHandle nh;
+  setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
 
-    endpoint_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/ewok/endpoint_position", 10, endpoint_position_cb);
-    local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, local_position_cb);
-    depth_cam_sub = nh.subscribe<sensor_msgs::Image>("/camera/depth/image_raw", 10, depth_cam_cb);
+  edrb.reset(new ewok::EuclideanDistanceRingBuffer<POW>(resolution, 1.0));
+  ewok::EuclideanDistanceRingBuffer<POW>::PointCloud cloud;
 
-    setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
+  ros::Rate r(1);
+  while (ros::ok())
+  {
+    r.sleep();
 
+    ros::spinOnce();
+  }
 
-    //ros::Publisher occ_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/occupied", 1, true);
-    //ros::Publisher free_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/free", 1, true);
-    //ros::Publisher updated_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/updated", 1, true);
-    //ros::Publisher dist_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/distance", 1, true);
-
-    //ewok::QuasiEuclideanDistanceRingBuffer<POW> rrb(0.1, 1.0);
-    //ewok::QuasiEuclideanDistanceRingBuffer<POW>::PointCloud cloud;
-
-    ewok::EuclideanDistanceRingBuffer<POW> rrb(0.1, 1.0);
-    ewok::EuclideanDistanceRingBuffer<POW>::PointCloud cloud;
-
-    //cloud.push_back(Eigen::Vector4f(-1, 1, 2, 0));
-    //cloud.push_back(Eigen::Vector4f(1, 1, 2, 0));
-    //cloud.push_back(Eigen::Vector4f(-1, -1, 2, 0));
-    //cloud.push_back(Eigen::Vector4f(1, -1, 2, 0));
-    //cloud.push_back(Eigen::Vector4f(0, 0, 5, 0));
-
-    //cloud.push_back(Eigen::Vector4f(0, 3, 5, 0));
-    //cloud.push_back(Eigen::Vector4f(3, 0, 5, 0));
-    //cloud.push_back(Eigen::Vector4f(0, 3, -5, 0));
-    //cloud.push_back(Eigen::Vector4f(3, 0, -5, 0));
-
-
-    //rrb.insertPointCloud(cloud, Eigen::Vector3f(0,0,0));
-    //rrb.updateDistance();
-
-    ros::Rate r(1);
-    while (ros::ok())
-    {
-        r.sleep();
-
-        //visualization_msgs::Marker m_occ, m_free, m_dist, m_updated;
-        //rrb.getMarkerOccupied(m_occ);
-        //rrb.getMarkerFree(m_free);
-        //rrb.getMarkerUpdated(m_updated);
-        //rrb.getMarkerDistance(m_dist, 0.9);
-
-        //occ_marker_pub.publish(m_occ);
-        //free_marker_pub.publish(m_free);
-        //updated_marker_pub.publish(m_updated);
-        //dist_marker_pub.publish(m_dist);
-
-        rrb.moveVolume(Eigen::Vector3i(1,0,0));
-
-        ros::spinOnce();
-    }
-
-    return 0;
+  return 0;
 }

@@ -10,13 +10,12 @@ find_package(Eigen3 REQUIRED)
 find_package(octomap REQUIRED)
 find_package(SuiteSparse REQUIRED)
 
-
-include_directories(${EIGEN3_INCLUDE_DIR} ${OCTOMAP_INCLUDE_DIRS})
+include_directories(${EIGEN3_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR})
 
 catkin_simple()
 
 cs_add_executable(trajectory_planner src/trajectory_planner.cpp)
-target_link_libraries(trajectory_planner ${OCTOMAP_LIBRARIES})
+target_link_libraries(trajectory_planner ${CHOLMOD_LIBRARY} nlopt)
 
 cs_install()
 cs_export()
