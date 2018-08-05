@@ -22,6 +22,7 @@ class ROSClient
 
     ros::Publisher vision_pos_pub_;
     ros::Publisher svo_cmd_pub_;
+    ros::Publisher ewok_cmd_pub_;
 
     ros::ServiceClient arming_client_;
     ros::ServiceClient land_client_;

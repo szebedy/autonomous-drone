@@ -61,6 +61,8 @@ class DroneControl
     void initVIO();
     void vioOff();
     void vioOn();
+    void ewokOff();
+    void ewokOn();
     void turnTowardsMarker();
     void approachMarker();
     void hover(int seconds);
@@ -83,6 +85,7 @@ class DroneControl
 
     mavros_msgs::CommandBool arm_cmd_;
     std_msgs::String svo_cmd_;
+    std_msgs::String ewok_cmd_;
 
     ROSClient *ros_client_;
 

@@ -299,6 +299,36 @@ void DroneControl::vioOn()
   return;
 }
 
+void DroneControl::ewokOff()
+{
+  ROS_INFO("Disabling ewok");
+
+  ewok_cmd_.data = "r";
+  for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i)
+  {
+    ros_client_->ewok_cmd_pub_.publish(ewok_cmd_);
+    ros::spinOnce();
+    rate_->sleep();
+  }
+
+  return;
+}
+
+void DroneControl::ewokOn()
+{
+  ROS_INFO("Starting ewok");
+
+  ewok_cmd_.data = "s";
+  for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i)
+  {
+    ros_client_->ewok_cmd_pub_.publish(ewok_cmd_);
+    ros::spinOnce();
+    rate_->sleep();
+  }
+
+  return;
+}
+
 void DroneControl::takeOff()
 {
   ROS_INFO("Taking off. Current position: N: %f, W: %f, U: %f", local_position_.pose.position.x,
