@@ -61,8 +61,8 @@ class DroneControl
     void initVIO();
     void vioOff();
     void vioOn();
-    void ewokOff();
-    void ewokOn();
+    void collisionAvoidOff();
+    void collisionAvoidOn();
     void turnTowardsMarker();
     void approachMarker();
     void hover(int seconds);

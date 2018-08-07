@@ -228,7 +228,8 @@ void DroneControl::offboardMode()
   // Send a few setpoints before starting, otherwise px4 will not switch to OFFBOARD mode
   for(int i = 20; ros::ok() && i > 0; --i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -262,7 +263,8 @@ void DroneControl::offboardMode()
         last_request_ = ros::Time::now();
       }
     }
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -299,32 +301,26 @@ void DroneControl::vioOn()
   return;
 }
 
-void DroneControl::ewokOff()
+void DroneControl::collisionAvoidOff()
 {
-  ROS_INFO("Disabling ewok");
+  ROS_INFO("Disabling collision avoidance");
+
+  ros_client_->avoidCollision_ = false;
 
   ewok_cmd_.data = "r";
-  for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i)
-  {
-    ros_client_->ewok_cmd_pub_.publish(ewok_cmd_);
-    ros::spinOnce();
-    rate_->sleep();
-  }
+  ros_client_->ewok_cmd_pub_.publish(ewok_cmd_);
 
   return;
 }
 
-void DroneControl::ewokOn()
+void DroneControl::collisionAvoidOn()
 {
-  ROS_INFO("Starting ewok");
+  ROS_INFO("Starting collision avoidance");
+
+  ros_client_->avoidCollision_ = true;
 
   ewok_cmd_.data = "s";
-  for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i)
-  {
-    ros_client_->ewok_cmd_pub_.publish(ewok_cmd_);
-    ros::spinOnce();
-    rate_->sleep();
-  }
+  ros_client_->ewok_cmd_pub_.publish(ewok_cmd_);
 
   return;
 }
@@ -341,7 +337,8 @@ void DroneControl::takeOff()
   ROS_INFO("Taking off");
   for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
   ROS_INFO("Takeoff finished! Looking for whycon marker");
@@ -362,7 +359,8 @@ void DroneControl::initVIO()
 
       setpoint_pos_ENU_.pose.position.x += INIT_FLIGHT_LENGTH/INIT_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < INIT_FLIGHT_DURATION * ROS_RATE
@@ -371,7 +369,8 @@ void DroneControl::initVIO()
 
       setpoint_pos_ENU_.pose.position.x -= INIT_FLIGHT_LENGTH/INIT_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
   }
@@ -390,7 +389,8 @@ void DroneControl::initVIO()
   ROS_INFO("Back to takeoff position");
   for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -408,28 +408,32 @@ void DroneControl::testFlightHorizontal()
     {
       setpoint_pos_ENU_.pose.position.x += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.y += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.x -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.y -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
   }
@@ -445,28 +449,32 @@ void DroneControl::testFlightVertical()
     {
       setpoint_pos_ENU_.pose.position.x += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.z += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.x -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.z -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
   }
@@ -480,7 +488,8 @@ void DroneControl::hover(int seconds)
            setpoint_pos_ENU_.pose.position.z);
   for(int i = 0; ros::ok() && i < 15 * ROS_RATE; ++i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -518,14 +527,16 @@ void DroneControl::turnTowardsMarker()
       ROS_INFO("No marker was found in the last second, turning around");
       setpoint_pos_ENU_.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+TURN_STEP_RAD);
     }
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
   // Send setpoint for 2 seconds
   for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -554,7 +565,8 @@ void DroneControl::approachMarker()
       }
       else {close_enough_ = 0;}
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
 
       approaching_ = true;
 
@@ -571,7 +583,8 @@ void DroneControl::approachMarker()
   // Publish final setpoint for 4 seconds before landing
   for(int i = 0; ros::ok() && i < 4 * ROS_RATE; ++i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -592,7 +605,8 @@ void DroneControl::land()
   ROS_INFO("Trying to land");
   while (!(ros_client_->land_client_.call(land_cmd) && land_cmd.response.success))
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     ROS_INFO("Retrying to land");
     rate_->sleep();
   }

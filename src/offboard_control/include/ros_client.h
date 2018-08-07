@@ -20,6 +20,8 @@ class ROSClient
     ros::Subscriber local_pos_sub_;
     ros::Subscriber svo_pos_sub_;
 
+    ros::Publisher setpoint_pos_pub_;
+    ros::Publisher endpoint_pos_pub_;
     ros::Publisher vision_pos_pub_;
     ros::Publisher svo_cmd_pub_;
     ros::Publisher ewok_cmd_pub_;
@@ -28,11 +30,12 @@ class ROSClient
     ros::ServiceClient land_client_;
     ros::ServiceClient set_mode_client_;
 
-    void publishSetpoint(const geometry_msgs::PoseStamped& setpoint_pos_ENU);
+    void publishTrajectoryEndpoint(const geometry_msgs::PoseStamped& setpoint_pos_ENU);
+
+    bool avoidCollision_;
 
   private:
     ros::NodeHandle *nh_;
-    ros::Publisher setpoint_pos_pub_;
 };
 
 #endif /* ROS_CLIENT_H */

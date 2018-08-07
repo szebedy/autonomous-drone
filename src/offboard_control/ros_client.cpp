@@ -15,6 +15,8 @@ ROSClient::ROSClient(int &argc, char **argv)
 {
   ros::init(argc, argv, "offboard_ctrl");
   this->nh_ = new ros::NodeHandle();
+
+  avoidCollision_ = false;
 }
 
 void ROSClient::init(DroneControl *const drone_control)
@@ -25,6 +27,7 @@ void ROSClient::init(DroneControl *const drone_control)
   svo_pos_sub_ = nh_->subscribe<geometry_msgs::PoseWithCovarianceStamped>("/svo/pose_imu", 10, &DroneControl::svo_position_cb, drone_control);
 
   setpoint_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
+  endpoint_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/ewok/endpoint_position", 10);
   vision_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);
   svo_cmd_pub_ = nh_->advertise<std_msgs::String>("/svo/remote_key", 10);
   ewok_cmd_pub_ = nh_->advertise<std_msgs::String>("/ewok/command", 10);
@@ -40,8 +43,15 @@ void ROSClient::init(DroneControl *const drone_control)
   //nh_->setParam("/mavros/local_position/tf/send", true);
 }
 
-void ROSClient::publishSetpoint(const geometry_msgs::PoseStamped &setpoint_pos_ENU)
+void ROSClient::publishTrajectoryEndpoint(const geometry_msgs::PoseStamped &setpoint_pos_ENU)
 {
-  setpoint_pos_pub_.publish(setpoint_pos_ENU);
-  ros::spinOnce();
+  if (avoidCollision_)
+  {
+    endpoint_pos_pub_.publish(setpoint_pos_ENU);
+    ros::spinOnce();
+  }
+  else
+  {
+    ROS_INFO("Collision avoidance has not been enabled");
+  }
 }

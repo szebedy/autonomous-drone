@@ -31,6 +31,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
+#include <std_msgs/String.h>
 
 #include <ewok/polynomial_3d_optimization.h>
 #include <ewok/uniform_bspline_3d_optimization.h>
@@ -53,6 +54,7 @@ bool setpointInitialized = false;
 ros::Subscriber local_pos_sub;
 ros::Subscriber endpoint_pos_sub;
 ros::Subscriber depth_cam_sub;
+ros::Subscriber ewok_cmd_sub;
 
 ros::Publisher setpoint_pos_pub;
 
@@ -60,7 +62,6 @@ geometry_msgs::PoseStamped endpoint_position;
 geometry_msgs::PoseStamped local_position;
 geometry_msgs::PoseStamped setpoint_pos_ENU;
 sensor_msgs::Image depth_cam_img;
-std_msgs::String ewok_cmd = "";
 
 ewok::PolynomialTrajectory3D<10>::Ptr traj;
 ewok::EuclideanDistanceRingBuffer<POW>::Ptr edrb;
@@ -68,14 +69,13 @@ ewok::UniformBSpline3DOptimization<6>::Ptr spline_optimization;
 
 tf::TransformListener * listener;
 
-void ewok_cmd_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
+void ewok_cmd_cb(const std_msgs::String::ConstPtr& msg)
 {
-  ewok_cmd = *msg;
-  if (ewok_cmd == "s")
+  if (msg->data == "s")
   {
     ringbufferActive = true;
   }
-  if (ewok_cmd == "r")
+  if (msg->data == "r")
   {
     ringbufferActive = false;
     setpointActive = false;
