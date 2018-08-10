@@ -74,7 +74,7 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
 
 
       cnt++;
-      if (cnt % 100 == 0) \
+      if (cnt % 66 == 0)
       {
         ROS_INFO("Marker setpoint position: E: %f, N: %f, U: %f", transformStamped_.transform.translation.x,
                 transformStamped_.transform.translation.y, transformStamped_.transform.translation.z);
@@ -104,7 +104,7 @@ void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr 
   transformStamped_.transform.rotation = local_position_.pose.orientation;
 
   cnt++;
-  if (cnt % 100 == 0) \
+  if (cnt % 100 == 0)
   {
     ROS_INFO("Mavros local position: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
              transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, currentYaw());
@@ -566,6 +566,7 @@ void DroneControl::approachMarker()
           ros::spinOnce();
           rate_->sleep();
         }
+        ROS_INFO("Close enough");
         break; // Exit loop and fly to final target
       }
       else

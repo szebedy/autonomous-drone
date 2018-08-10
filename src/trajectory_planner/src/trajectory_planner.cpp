@@ -92,6 +92,10 @@ void endpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
   Eigen::Vector3d start_point(local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z),
                   end_point(endpoint_position.pose.position.x, endpoint_position.pose.position.y, endpoint_position.pose.position.z);
 
+  ROS_INFO("Requested trajectory start - %f %f %f, stop - %f %f %f",
+           local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z,
+           endpoint_position.pose.position.x, endpoint_position.pose.position.y, endpoint_position.pose.position.z);
+
   Eigen::Vector4d limits(max_velocity, max_acceleration, 0, 0);
 
   ewok::Polynomial3DOptimization<10> to(limits);
@@ -135,7 +139,7 @@ void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
 
     try
     {
-      listener->lookupTransform("map", "drone", msg->header.stamp, transform);
+      listener->lookupTransform("map", "drone", ros::Time(0), transform);
     }
     catch (tf::TransformException &ex)
     {
@@ -151,7 +155,7 @@ void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
 
     uint16_t * data = (uint16_t *) cv_ptr->image.data;
 
-    auto t1 = std::chrono::high_resolution_clock::now();
+    //auto t1 = std::chrono::high_resolution_clock::now();
 
     ewok::EuclideanDistanceRingBuffer<POW>::PointCloud cloud1;
 
@@ -181,7 +185,7 @@ void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
 
     Eigen::Vector3f origin = (T_w_c * Eigen::Vector4f(0,0,0,1)).head<3>();
 
-    auto t2 = std::chrono::high_resolution_clock::now();
+    //auto t2 = std::chrono::high_resolution_clock::now();
 
     if(!ringbufferInitialized)
     {
@@ -215,11 +219,11 @@ void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
     //ROS_INFO_STREAM("cloud1 size: " << cloud1.size());
 
 
-    auto t3 = std::chrono::high_resolution_clock::now();
+    //auto t3 = std::chrono::high_resolution_clock::now();
 
     edrb->insertPointCloud(cloud1, origin);
 
-    auto t4 = std::chrono::high_resolution_clock::now();
+    //auto t4 = std::chrono::high_resolution_clock::now();
 
     //f_time << std::chrono::duration_cast<std::chrono::nanoseconds>(t2-t1).count() << " " <<
     //          std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count() << " " <<
@@ -271,7 +275,7 @@ int main(int argc, char** argv)
 
   listener = new tf::TransformListener;
 
-  depth_cam_sub = nh.subscribe<sensor_msgs::Image>("/camera/depth/image_raw", 1, depth_cam_cb);
+  depth_cam_sub = nh.subscribe<sensor_msgs::Image>("/r200/depth/image_raw", 1, depth_cam_cb);
 
   setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
 
@@ -287,21 +291,25 @@ int main(int argc, char** argv)
   {
     ros::spinOnce();
 
-    auto t1 = std::chrono::high_resolution_clock::now();
+    //auto t1 = std::chrono::high_resolution_clock::now();
 
+    ROS_INFO("1");
     edrb->updateDistance();
 
+    ROS_INFO("2");
     //visualization_msgs::MarkerArray traj_marker;
 
-    auto t2 = std::chrono::high_resolution_clock::now();
+    //auto t2 = std::chrono::high_resolution_clock::now();
     if (setpointActive)
     {
+      ROS_INFO("3");
       spline_optimization->optimize();
-      auto t3 = std::chrono::high_resolution_clock::now();
+      //auto t3 = std::chrono::high_resolution_clock::now();
 
       //opt_time << std::chrono::duration_cast<std::chrono::nanoseconds>(t2-t1).count() << " "
       //    << std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count() << std::endl;
 
+      ROS_INFO("4");
       Eigen::Vector3d pc = spline_optimization->getFirstOptimizationPoint();
 
       setpoint_pos_ENU.pose.position.x = pc[0];
@@ -313,6 +321,7 @@ int main(int argc, char** argv)
 
       spline_optimization->addLastControlPoint();
 
+      ROS_INFO("5");
       //visualization_msgs::Marker m_dist;
       //edrb->getMarkerDistance(m_dist, 0.5);
       //dist_marker_pub.publish(m_dist);
