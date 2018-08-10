@@ -27,6 +27,7 @@ void DroneControl::state_cb(const mavros_msgs::State::ConstPtr &msg)
 void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &msg)
 {
   marker_position_ = *msg;
+  static int cnt = 0;
 
   static tf2_ros::TransformBroadcaster br;
 
@@ -71,8 +72,13 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
       setpoint_pos_ENU_.pose.position.z = transformStamped_.transform.translation.z;
       //setpoint_pos_ENU.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
 
-      ROS_INFO("Setpoint position: E: %f, N: %f, U: %f", transformStamped_.transform.translation.x,
-               transformStamped_.transform.translation.y, transformStamped_.transform.translation.z);
+
+      cnt++;
+      if (cnt % 100 == 0) \
+      {
+        ROS_INFO("Marker setpoint position: E: %f, N: %f, U: %f", transformStamped_.transform.translation.x,
+                transformStamped_.transform.translation.y, transformStamped_.transform.translation.z);
+      }
     }
     catch (tf2::TransformException &ex)
     {
@@ -552,24 +558,36 @@ void DroneControl::approachMarker()
   {
     if (ros::Time::now() - marker_position_.header.stamp < ros::Duration(1.0))
     {
-      if (marker_position_.poses[0].position.z < 1.5)
+      if (ros_client_->avoidCollision_)
       {
-        close_enough_++;
-        // TODO: Changing orientation. Calulate yaw from marker orientation
-
-        if (close_enough_ > (SAFETY_TIME_SEC * ROS_RATE))
+        ros_client_->publishTrajectoryEndpoint(setpoint_pos_ENU_);
+        while (marker_position_.poses[0].position.z > 0.5)
         {
-          ROS_INFO("Close enough");
-          break; // Exit loop and fly to final target
+          ros::spinOnce();
+          rate_->sleep();
         }
+        break; // Exit loop and fly to final target
       }
-      else {close_enough_ = 0;}
+      else
+      {
+        if (marker_position_.poses[0].position.z < 1.5)
+        {
+          close_enough_++;
+          // TODO: Changing orientation. Calulate yaw from marker orientation
 
-      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
-      ros::spinOnce();
+          if (close_enough_ > (SAFETY_TIME_SEC * ROS_RATE))
+          {
+            ROS_INFO("Close enough");
+            break; // Exit loop and fly to final target
+          }
+        }
+        else {close_enough_ = 0;}
 
-      approaching_ = true;
+        ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+        ros::spinOnce();
 
+        approaching_ = true;
+      }
     }
     else
     {

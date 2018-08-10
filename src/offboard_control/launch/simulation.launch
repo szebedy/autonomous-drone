@@ -11,4 +11,5 @@
     <remap from="image" to="whycon/image_out" />
   </node>
   <node name="offboard_control" type="offboard_control" pkg="offboard_control" output="screen" />
+  <node name="trajectory_planner" type="trajectory_planner" pkg="trajectory_planner" output="screen" />
 </launch>
