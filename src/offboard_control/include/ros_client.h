@@ -19,6 +19,7 @@ class ROSClient
     ros::Subscriber marker_pos_sub_;
     ros::Subscriber local_pos_sub_;
     ros::Subscriber svo_pos_sub_;
+    ros::Subscriber setpoint_pos_sub_;
 
     ros::Publisher setpoint_pos_pub_;
     ros::Publisher endpoint_pos_pub_;

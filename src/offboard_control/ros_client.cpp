@@ -25,6 +25,7 @@ void ROSClient::init(DroneControl *const drone_control)
   marker_pos_sub_ = nh_->subscribe<geometry_msgs::PoseArray>("/whycon/poses", 10, &DroneControl::marker_position_cb, drone_control);
   local_pos_sub_ = nh_->subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, &DroneControl::local_position_cb, drone_control);
   svo_pos_sub_ = nh_->subscribe<geometry_msgs::PoseWithCovarianceStamped>("/svo/pose_imu", 10, &DroneControl::svo_position_cb, drone_control);
+  setpoint_pos_sub_ = nh_->subscribe<geometry_msgs::PoseStamped>("/ewok/setpoint_position", 10, &DroneControl::setpoint_position_cb, drone_control);
 
   setpoint_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
   endpoint_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/ewok/endpoint_position", 10);

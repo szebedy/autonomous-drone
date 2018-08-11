@@ -52,6 +52,7 @@ class DroneControl
     void state_cb(const mavros_msgs::State::ConstPtr &msg);
     void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &msg);
     void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
+    void setpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
     void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg);
 
     void offboardMode();
@@ -71,11 +72,13 @@ class DroneControl
 
   private:
     bool approaching_ = false;
+    bool endpoint_active_ = false;
     bool send_vision_estimate_ = true;
     bool svo_running_ = false;
     unsigned char close_enough_ = 0;
 
     geometry_msgs::PoseStamped setpoint_pos_ENU_;
+    geometry_msgs::PoseStamped endpoint_pos_ENU_;
     geometry_msgs::PoseStamped vision_pos_ENU_;
     geometry_msgs::PoseStamped gps_init_pos_;
     geometry_msgs::PoseStamped svo_init_pos_;

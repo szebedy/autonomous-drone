@@ -41,7 +41,7 @@ static const int POW = 6;
 //static const int N = (1 << POW);
 static const double dt = 0.5;
 static const int num_opt_points = 7;
-static const double max_velocity = 0.3;
+static const double max_velocity = 0.8;
 static const double max_acceleration = 0.5;
 static const double resolution = 0.1;
 static const double distance_threshold = 0.3;
@@ -92,7 +92,7 @@ void endpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
   Eigen::Vector3d start_point(local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z),
                   end_point(endpoint_position.pose.position.x, endpoint_position.pose.position.y, endpoint_position.pose.position.z);
 
-  ROS_INFO("Requested trajectory start - %f %f %f, stop - %f %f %f",
+  ROS_INFO("Requested trajectory start: %f %f %f, stop: %f %f %f",
            local_position.pose.position.x, local_position.pose.position.y, local_position.pose.position.z,
            endpoint_position.pose.position.x, endpoint_position.pose.position.y, endpoint_position.pose.position.z);
 
@@ -106,6 +106,10 @@ void endpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
   traj = to.computeTrajectory(path);
 
   spline_optimization.reset(new ewok::UniformBSpline3DOptimization<6>(traj, dt));
+
+  for (int i = 0; i < num_opt_points; i++) {
+      spline_optimization->addControlPoint(start_point);
+  }
 
   spline_optimization->setNumControlPointsOptimized(num_opt_points);
   spline_optimization->setDistanceBuffer(edrb);
@@ -254,7 +258,11 @@ void publishSetpoint(const ros::TimerEvent& e)
 {
   if(setpointActive)
   {
+    ROS_INFO("Publish: %f %f %f",
+             setpoint_pos_ENU.pose.position.x, setpoint_pos_ENU.pose.position.y, setpoint_pos_ENU.pose.position.z);
     setpoint_pos_pub.publish(setpoint_pos_ENU);
+
+    ros::spinOnce();
   }
 }
 
@@ -275,9 +283,9 @@ int main(int argc, char** argv)
 
   listener = new tf::TransformListener;
 
-  depth_cam_sub = nh.subscribe<sensor_msgs::Image>("/r200/depth/image_raw", 1, depth_cam_cb);
+  //depth_cam_sub = nh.subscribe<sensor_msgs::Image>("/camera/depth/image_raw", 1, depth_cam_cb);
 
-  setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
+  setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/ewok/setpoint_position", 10);
 
   edrb.reset(new ewok::EuclideanDistanceRingBuffer<POW>(resolution, 1.0));
   //ewok::EuclideanDistanceRingBuffer<POW>::PointCloud cloud;
@@ -293,23 +301,19 @@ int main(int argc, char** argv)
 
     //auto t1 = std::chrono::high_resolution_clock::now();
 
-    ROS_INFO("1");
     edrb->updateDistance();
 
-    ROS_INFO("2");
     //visualization_msgs::MarkerArray traj_marker;
 
     //auto t2 = std::chrono::high_resolution_clock::now();
     if (setpointActive)
     {
-      ROS_INFO("3");
       spline_optimization->optimize();
       //auto t3 = std::chrono::high_resolution_clock::now();
 
       //opt_time << std::chrono::duration_cast<std::chrono::nanoseconds>(t2-t1).count() << " "
       //    << std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count() << std::endl;
 
-      ROS_INFO("4");
       Eigen::Vector3d pc = spline_optimization->getFirstOptimizationPoint();
 
       setpoint_pos_ENU.pose.position.x = pc[0];
@@ -320,8 +324,7 @@ int main(int argc, char** argv)
       //current_traj_pub.publish(traj_marker);
 
       spline_optimization->addLastControlPoint();
-
-      ROS_INFO("5");
+\
       //visualization_msgs::Marker m_dist;
       //edrb->getMarkerDistance(m_dist, 0.5);
       //dist_marker_pub.publish(m_dist);
