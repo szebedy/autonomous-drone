@@ -67,7 +67,7 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
   {
     try
     {
-      transformStamped_ = tfBuffer_.lookupTransform("map", "marker", ros::Time(0));
+      transformStamped_ = tfBuffer_.lookupTransform("world", "marker", ros::Time(0));
 
       endpoint_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x;
       endpoint_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y;
@@ -104,9 +104,9 @@ void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr 
 
   static tf2_ros::TransformBroadcaster br;
 
-  // Transformation from map to drone
+  // Transformation from world to drone
   transformStamped_.header.stamp = local_position_.header.stamp;
-  transformStamped_.header.frame_id = "map";
+  transformStamped_.header.frame_id = "world";
   transformStamped_.child_frame_id = "drone";
   transformStamped_.transform.translation.x = local_position_.pose.position.x;
   transformStamped_.transform.translation.y = local_position_.pose.position.y;
@@ -156,9 +156,9 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
       svo_init_pos_.pose.orientation.w = 1;
     }
 
-    // Transformation from map to svo_init
+    // Transformation from world to svo_init
     transformStamped_.header.stamp = svo_position_.header.stamp;
-    transformStamped_.header.frame_id = "map";
+    transformStamped_.header.frame_id = "world";
     transformStamped_.child_frame_id = "svo_init";
     transformStamped_.transform.translation.x = svo_init_pos_.pose.position.x;
     transformStamped_.transform.translation.y = svo_init_pos_.pose.position.y;
@@ -184,9 +184,9 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
     try
     {
       // Send vision position estimate to mavros
-      transformStamped_ = tfBuffer_.lookupTransform("map", "drone_vision", ros::Time(0));
+      transformStamped_ = tfBuffer_.lookupTransform("world", "drone_vision", ros::Time(0));
       vision_pos_ENU_.header.stamp = svo_position_.header.stamp;
-      vision_pos_ENU_.header.frame_id = "map";
+      vision_pos_ENU_.header.frame_id = "world";
       vision_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x;
       vision_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y;
       vision_pos_ENU_.pose.position.z = transformStamped_.transform.translation.z;
@@ -233,7 +233,7 @@ void DroneControl::offboardMode()
   } else {
       ROS_INFO("Local_position not available, initializing to 0");
       local_position_.header.stamp = ros::Time::now();
-      local_position_.header.frame_id = "map";
+      local_position_.header.frame_id = "world";
       local_position_.pose.position.x = 0;
       local_position_.pose.position.y = 0;
       local_position_.pose.position.z = 0;
@@ -245,6 +245,20 @@ void DroneControl::offboardMode()
 
   setpoint_pos_ENU_ = gps_init_pos_ = local_position_;
 
+  // Transformation from drone to camera
+  transformStamped_.header.stamp = ros::Time::now();
+  transformStamped_.header.frame_id = "drone";
+  transformStamped_.child_frame_id = "camera";
+  transformStamped_.transform.translation.x = 0.1;
+  transformStamped_.transform.translation.y = 0;
+  transformStamped_.transform.translation.z = 0;
+  transformStamped_.transform.rotation.x = 0;
+  transformStamped_.transform.rotation.y = 0.7071068;
+  transformStamped_.transform.rotation.z = 0;
+  transformStamped_.transform.rotation.w = 0.7071068;
+
+  static tf2_ros::StaticTransformBroadcaster sbr;
+  sbr.sendTransform(transformStamped_);
 
   // Send a few setpoints before starting, otherwise px4 will not switch to OFFBOARD mode
   for(int i = 20; ros::ok() && i > 0; --i)

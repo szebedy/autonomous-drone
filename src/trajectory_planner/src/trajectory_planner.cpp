@@ -57,6 +57,7 @@ ros::Subscriber depth_cam_sub;
 ros::Subscriber ewok_cmd_sub;
 
 ros::Publisher setpoint_pos_pub;
+ros::Publisher occ_marker_pub, free_marker_pub, dist_marker_pub, current_traj_marker_pub, traj_marker_pub;
 
 geometry_msgs::PoseStamped endpoint_position;
 geometry_msgs::PoseStamped local_position;
@@ -105,6 +106,10 @@ void endpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
 
   traj = to.computeTrajectory(path);
 
+  visualization_msgs::MarkerArray traj_marker;
+  traj->getVisualizationMarkerArray(traj_marker, "gt", Eigen::Vector3d(1,0,1));
+  traj_marker_pub.publish(traj_marker);
+
   spline_optimization.reset(new ewok::UniformBSpline3DOptimization<6>(traj, dt));
 
   for (int i = 0; i < num_opt_points; i++) {
@@ -143,7 +148,7 @@ void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
 
     try
     {
-      listener->lookupTransform("map", "drone", ros::Time(0), transform);
+      listener->lookupTransform("world", "camera", ros::Time(0), transform);
     }
     catch (tf::TransformException &ex)
     {
@@ -169,7 +174,8 @@ void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
       {
         uint16_t uval = data[v*cv_ptr->image.cols + u];
 
-        //ROS_INFO_STREAM(val);
+        //uval = ((uval & 0x00FF) << 8)| ((uval & 0xFF00) >> 8);
+        //ROS_INFO_STREAM(uval);
 
         if(uval > 0)
         {
@@ -233,13 +239,13 @@ void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
     //          std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count() << " " <<
     //          std::chrono::duration_cast<std::chrono::nanoseconds>(t4-t3).count() << std::endl;
 
-    //visualization_msgs::Marker m_occ, m_free;
-    //edrb->getMarkerOccupied(m_occ);
-    //edrb->getMarkerFree(m_free);
+    visualization_msgs::Marker m_occ, m_free;
+    edrb->getMarkerOccupied(m_occ);
+    edrb->getMarkerFree(m_free);
 
 
-    //occ_marker_pub.publish(m_occ);
-    //free_marker_pub.publish(m_free);
+    occ_marker_pub.publish(m_occ);
+    free_marker_pub.publish(m_free);
   }
 }
 
@@ -283,7 +289,13 @@ int main(int argc, char** argv)
 
   listener = new tf::TransformListener;
 
-  //depth_cam_sub = nh.subscribe<sensor_msgs::Image>("/camera/depth/image_raw", 1, depth_cam_cb);
+  occ_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/occupied", 5);
+  free_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/free", 5);
+  dist_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/distance", 5);
+  traj_marker_pub = nh.advertise<visualization_msgs::MarkerArray>("global_trajectory", 1, true);
+  current_traj_marker_pub = nh.advertise<visualization_msgs::MarkerArray>("optimal_trajectory", 1, true);
+
+  depth_cam_sub = nh.subscribe<sensor_msgs::Image>("/camera/depth/image_raw", 1, depth_cam_cb);
 
   setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/ewok/setpoint_position", 10);
 
@@ -303,7 +315,7 @@ int main(int argc, char** argv)
 
     edrb->updateDistance();
 
-    //visualization_msgs::MarkerArray traj_marker;
+    visualization_msgs::MarkerArray traj_marker;
 
     //auto t2 = std::chrono::high_resolution_clock::now();
     if (setpointActive)
@@ -320,14 +332,14 @@ int main(int argc, char** argv)
       setpoint_pos_ENU.pose.position.y = pc[1];
       setpoint_pos_ENU.pose.position.z = pc[2];
 
-      //spline_optimization->getMarkers(traj_marker);
-      //current_traj_pub.publish(traj_marker);
+      spline_optimization->getMarkers(traj_marker);
+      current_traj_marker_pub.publish(traj_marker);
 
       spline_optimization->addLastControlPoint();
 \
-      //visualization_msgs::Marker m_dist;
-      //edrb->getMarkerDistance(m_dist, 0.5);
-      //dist_marker_pub.publish(m_dist);
+      visualization_msgs::Marker m_dist;
+      edrb->getMarkerDistance(m_dist, 0.5);
+      dist_marker_pub.publish(m_dist);
     }
 
     r.sleep();
