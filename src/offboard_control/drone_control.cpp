@@ -38,10 +38,18 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
   transformStamped_.transform.translation.x = marker_position_.poses[0].position.z;
   transformStamped_.transform.translation.y = -marker_position_.poses[0].position.x;
   transformStamped_.transform.translation.z = -marker_position_.poses[0].position.y;
-  transformStamped_.transform.rotation.x = 0;
-  transformStamped_.transform.rotation.y = 0;
-  transformStamped_.transform.rotation.z = 0;
-  transformStamped_.transform.rotation.w = 1;
+  // Calculate yaw difference between drone and marker orientation
+  double roll, pitch, yaw;
+  tf::Quaternion q(marker_position_.poses[0].orientation.x,
+                   marker_position_.poses[0].orientation.y,
+                   marker_position_.poses[0].orientation.z,
+                   marker_position_.poses[0].orientation.w);
+  tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+  if (yaw < -M_PI/2) yaw += M_PI;
+  else if (yaw > M_PI/2) yaw -= M_PI;
+  //else if (yaw < -3*M_PI/2) yaw += 2*M_PI;
+  //else if (yaw > 3*M_PI/2) yaw -= 2*M_PI;
+  transformStamped_.transform.rotation = tf::createQuaternionMsgFromYaw(yaw);;
   br.sendTransform(transformStamped_);
 
   float target_distance = marker_position_.poses[0].position.z/4; // Target distance is proportional to horizontal distance
@@ -59,8 +67,8 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
   transformStamped_.transform.translation.z = 0;
   transformStamped_.transform.rotation.x = 0;
   transformStamped_.transform.rotation.y = 0;
-  transformStamped_.transform.rotation.z = 1;
-  transformStamped_.transform.rotation.w = 0;
+  transformStamped_.transform.rotation.z = 0;
+  transformStamped_.transform.rotation.w = 1;
   br.sendTransform(transformStamped_);
 
   if (approaching_)
@@ -79,7 +87,7 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
                        transformStamped_.transform.rotation.z,
                        transformStamped_.transform.rotation.w);
       tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
-      endpoint_pos_ENU_.pose.orientation = tf::createQuaternionMsgFromYaw(yaw); // + M_PI ?
+      endpoint_pos_ENU_.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
 
       endpoint_active_ = true;
 
