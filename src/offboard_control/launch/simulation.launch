@@ -1,14 +1,15 @@
 <launch>
   <include file="$(find px4)/launch/mavros_posix_sitl.launch" />
+  <node name="image_view" type="image_view" pkg="image_view" output="screen" >
+    <!--remap from="image" to="/whycon/image_out" /-->
+    <remap from="image" to="/camera/depth/image_raw" />
+  </node>
   <node name="whycon" type="whycon" pkg="whycon" output="screen">
-    <remap from="camera/image_rect_color" to="camera/rgb/image_rect_color" />
+    <remap from="camera/image_rect_color" to="camera/rgb/image_raw" />
     <remap from="camera/camera_info" to="camera/rgb/camera_info" />
     <param name="targets" value="1" />
     <param name="inner_diameter" value="0.08" />
     <param name="outer_diameter" value="0.1952" />
-  </node>
-  <node name="image_view" type="image_view" pkg="image_view" output="screen" >
-    <remap from="image" to="whycon/image_out" />
   </node>
   <node name="offboard_control" type="offboard_control" pkg="offboard_control" output="screen" />
   <node name="trajectory_planner" type="trajectory_planner" pkg="trajectory_planner" output="screen" />

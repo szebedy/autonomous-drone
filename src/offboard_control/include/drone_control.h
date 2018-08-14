@@ -37,7 +37,7 @@ class DroneControl
     static constexpr float TEST_FLIGHT_DURATION = 3.0; //In seconds per side
     static constexpr float TEST_FLIGHT_LENGTH = 4.0;   //In meters
     static constexpr int   TEST_FLIGHT_REPEAT = 2;     //Times
-    static constexpr bool  KEEP_ALIVE = false;
+    static constexpr bool  KEEP_ALIVE = true;
 
     // The setpoint publishing rate MUST be faster than 2Hz
     ros::Rate *rate_;
