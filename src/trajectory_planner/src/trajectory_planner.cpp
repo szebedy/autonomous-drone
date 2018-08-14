@@ -278,8 +278,8 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
 
   local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, local_position_cb);
-  endpoint_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/ewok/endpoint_position", 10, endpoint_position_cb);
-  ewok_cmd_sub = nh.subscribe<std_msgs::String>("/ewok/command", 10, ewok_cmd_cb);
+  endpoint_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/trajectory/endpoint_position", 10, endpoint_position_cb);
+  ewok_cmd_sub = nh.subscribe<std_msgs::String>("/trajectory/command", 10, ewok_cmd_cb);
 
   while (!ringbufferActive)
   {
@@ -297,7 +297,7 @@ int main(int argc, char** argv)
 
   depth_cam_sub = nh.subscribe<sensor_msgs::Image>("/camera/depth/image_raw", 1, depth_cam_cb);
 
-  setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/ewok/setpoint_position", 10);
+  setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/trajectory/setpoint_position", 10);
 
   edrb.reset(new ewok::EuclideanDistanceRingBuffer<POW>(resolution, 1.0));
   //ewok::EuclideanDistanceRingBuffer<POW>::PointCloud cloud;

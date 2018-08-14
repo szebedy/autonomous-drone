@@ -260,10 +260,10 @@ void DroneControl::offboardMode()
   transformStamped_.transform.translation.x = 0.1;
   transformStamped_.transform.translation.y = 0;
   transformStamped_.transform.translation.z = 0;
-  transformStamped_.transform.rotation.x = 0;
-  transformStamped_.transform.rotation.y = 0.7071068;
-  transformStamped_.transform.rotation.z = 0;
-  transformStamped_.transform.rotation.w = 0.7071068;
+  transformStamped_.transform.rotation.x = -0.5;
+  transformStamped_.transform.rotation.y = 0.5;
+  transformStamped_.transform.rotation.z = -0.5;
+  transformStamped_.transform.rotation.w = 0.5;
 
   static tf2_ros::StaticTransformBroadcaster sbr;
   sbr.sendTransform(transformStamped_);
