@@ -38,29 +38,37 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
   transformStamped_.transform.translation.x = marker_position_.poses[0].position.z;
   transformStamped_.transform.translation.y = -marker_position_.poses[0].position.x;
   transformStamped_.transform.translation.z = -marker_position_.poses[0].position.y;
-  // Calculate yaw difference between drone and marker orientation
-  double roll, pitch, yaw;
-  tf::Quaternion q(marker_position_.poses[0].orientation.x,
-                   marker_position_.poses[0].orientation.y,
-                   marker_position_.poses[0].orientation.z,
-                   marker_position_.poses[0].orientation.w);
-  tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
-  if (yaw < -M_PI/2) yaw += M_PI;
-  else if (yaw > M_PI/2) yaw -= M_PI;
-  //else if (yaw < -3*M_PI/2) yaw += 2*M_PI;
-  //else if (yaw > 3*M_PI/2) yaw -= 2*M_PI;
-  transformStamped_.transform.rotation = tf::createQuaternionMsgFromYaw(yaw);;
+  if(USE_MARKER_ORIENTATION)
+  {
+      // Calculate yaw difference between drone and marker orientation
+      double roll, pitch, yaw;
+      tf::Quaternion q(marker_position_.poses[0].orientation.x,
+                       marker_position_.poses[0].orientation.y,
+                       marker_position_.poses[0].orientation.z,
+                       marker_position_.poses[0].orientation.w);
+      tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+      if(yaw < -M_PI/2) yaw += M_PI;
+      else if(yaw > M_PI/2) yaw -= M_PI;
+      //else if(yaw < -3*M_PI/2) yaw += 2*M_PI;
+      //else if(yaw > 3*M_PI/2) yaw -= 2*M_PI;
+      transformStamped_.transform.rotation = tf::createQuaternionMsgFromYaw(yaw);
+  }
+  else
+  {
+    float rad = -atan2f(marker_position_.poses[0].position.x, marker_position_.poses[0].position.z);
+    transformStamped_.transform.rotation = tf::createQuaternionMsgFromYaw(rad);
+  }
   br.sendTransform(transformStamped_);
 
   float target_distance = marker_position_.poses[0].position.z/4; // Target distance is proportional to horizontal distance
-  if (target_distance < 1) target_distance = 1; // Minimum of 1 meter
+  if(target_distance < 1) target_distance = 1; // Minimum of 1 meter
 
   // Transformation from visual marker to target position
   transformStamped_.header.stamp = marker_position_.header.stamp;
   transformStamped_.header.frame_id = "marker";
   transformStamped_.child_frame_id = "target_position";
-  if (close_enough_ > (SAFETY_TIME_SEC * ROS_RATE) || ros_client_->avoidCollision_)
-    transformStamped_.transform.translation.x = -0.6; //The target is 0.6 m in front of the marker if the drone is close enough or collision avoidance is active
+  if(close_enough_ > (SAFETY_TIME_SEC * ROS_RATE) || ros_client_->avoidCollision_)
+    transformStamped_.transform.translation.x = -0.5; //The target is 0.5 m in front of the marker if the drone is close enough or collision avoidance is active
   else
     transformStamped_.transform.translation.x = -target_distance;
   transformStamped_.transform.translation.y = 0;
@@ -71,11 +79,11 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
   transformStamped_.transform.rotation.w = 1;
   br.sendTransform(transformStamped_);
 
-  if (approaching_)
+  if(approaching_)
   {
     try
     {
-      transformStamped_ = tfBuffer_.lookupTransform("world", "marker", ros::Time(0));
+      transformStamped_ = tfBuffer_.lookupTransform("world", "target_position", ros::Time(0));
 
       endpoint_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x;
       endpoint_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y;
