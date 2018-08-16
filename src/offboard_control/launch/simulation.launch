@@ -11,6 +11,6 @@
     <param name="inner_diameter" value="0.08" />
     <param name="outer_diameter" value="0.1952" />
   </node>
-  <node name="offboard_control" type="offboard_control" pkg="offboard_control" output="screen" />
   <node name="trajectory_planner" type="trajectory_planner" pkg="trajectory_planner" output="screen" />
+  <node name="offboard_control" type="offboard_control" pkg="offboard_control" output="screen" />
 </launch>

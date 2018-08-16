@@ -119,6 +119,7 @@ void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr 
   static int cnt = 0;
 
   static tf2_ros::TransformBroadcaster br;
+  static tf2_ros::StaticTransformBroadcaster sbr;
 
   // Transformation from world to drone
   transformStamped_.header.stamp = local_position_.header.stamp;
@@ -128,6 +129,25 @@ void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr 
   transformStamped_.transform.translation.y = local_position_.pose.position.y;
   transformStamped_.transform.translation.z = local_position_.pose.position.z;
   transformStamped_.transform.rotation = local_position_.pose.orientation;
+  br.sendTransform(transformStamped_);
+
+  if(!cam_tf_init_)
+  {
+    // Transformation from drone to camera
+    transformStamped_.header.stamp = ros::Time::now();
+    transformStamped_.header.frame_id = "drone";
+    transformStamped_.child_frame_id = "camera";
+    transformStamped_.transform.translation.x = 0.1;
+    transformStamped_.transform.translation.y = 0;
+    transformStamped_.transform.translation.z = 0;
+    transformStamped_.transform.rotation.x = -0.5;
+    transformStamped_.transform.rotation.y = 0.5;
+    transformStamped_.transform.rotation.z = -0.5;
+    transformStamped_.transform.rotation.w = 0.5;
+    sbr.sendTransform(transformStamped_);
+
+    cam_tf_init_ = true;
+  }
 
   cnt++;
   if(cnt % 100 == 0)
@@ -135,8 +155,6 @@ void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr 
     ROS_INFO("Mavros local position: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
              transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, currentYaw());
   }
-
-  br.sendTransform(transformStamped_);
 }
 
 void DroneControl::setpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
@@ -244,37 +262,25 @@ void DroneControl::offboardMode()
 
   last_svo_estimate_ = ros::Time::now(); //TODO this is error prone
 
-  if(ros::Time::now() - local_position_.header.stamp < ros::Duration(1.0)) {
-      ROS_INFO("Local_position available");
-  } else {
-      ROS_INFO("Local_position not available, initializing to 0");
-      local_position_.header.stamp = ros::Time::now();
-      local_position_.header.frame_id = "world";
-      local_position_.pose.position.x = 0;
-      local_position_.pose.position.y = 0;
-      local_position_.pose.position.z = 0;
-      local_position_.pose.orientation.x = 0;
-      local_position_.pose.orientation.y = 0;
-      local_position_.pose.orientation.z = 0;
-      local_position_.pose.orientation.w = 1;
+  if(ros::Time::now() - local_position_.header.stamp < ros::Duration(1.0))
+  {
+    ROS_INFO("Local_position available");
+  }
+  else
+  {
+    ROS_INFO("Local_position not available, initializing to 0");
+    local_position_.header.stamp = ros::Time::now();
+    local_position_.header.frame_id = "world";
+    local_position_.pose.position.x = 0;
+    local_position_.pose.position.y = 0;
+    local_position_.pose.position.z = 0;
+    local_position_.pose.orientation.x = 0;
+    local_position_.pose.orientation.y = 0;
+    local_position_.pose.orientation.z = 0;
+    local_position_.pose.orientation.w = 1;
   }
 
   setpoint_pos_ENU_ = gps_init_pos_ = local_position_;
-
-  // Transformation from drone to camera
-  transformStamped_.header.stamp = ros::Time::now();
-  transformStamped_.header.frame_id = "drone";
-  transformStamped_.child_frame_id = "camera";
-  transformStamped_.transform.translation.x = 0.1;
-  transformStamped_.transform.translation.y = 0;
-  transformStamped_.transform.translation.z = 0;
-  transformStamped_.transform.rotation.x = -0.5;
-  transformStamped_.transform.rotation.y = 0.5;
-  transformStamped_.transform.rotation.z = -0.5;
-  transformStamped_.transform.rotation.w = 0.5;
-
-  static tf2_ros::StaticTransformBroadcaster sbr;
-  sbr.sendTransform(transformStamped_);
 
   // Send a few setpoints before starting, otherwise px4 will not switch to OFFBOARD mode
   for(int i = 20; ros::ok() && i > 0; --i)

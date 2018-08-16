@@ -10,6 +10,6 @@
     <remap from="camera/camera_info" to="camera/rgb/camera_info" />
     <param name="targets" value="1" />
   </node>
-  <node name="offboard_control" type="offboard_control" pkg="offboard_control" output="screen" />
   <node name="trajectory_planner" type="trajectory_planner" pkg="trajectory_planner" output="screen" />
+  <node name="offboard_control" type="offboard_control" pkg="offboard_control" output="screen" />
 </launch>

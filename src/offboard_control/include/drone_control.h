@@ -76,6 +76,7 @@ class DroneControl
     bool endpoint_active_ = false;
     bool send_vision_estimate_ = true;
     bool svo_running_ = false;
+    bool cam_tf_init_ = false;
     unsigned char close_enough_ = 0;
 
     geometry_msgs::PoseStamped setpoint_pos_ENU_;
