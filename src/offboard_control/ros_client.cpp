@@ -46,7 +46,7 @@ void ROSClient::init(DroneControl *const drone_control)
 
 void ROSClient::publishTrajectoryEndpoint(const geometry_msgs::PoseStamped &setpoint_pos_ENU)
 {
-  if (avoidCollision_)
+  if(avoidCollision_)
   {
     endpoint_pos_pub_.publish(setpoint_pos_ENU);
     ros::spinOnce();
