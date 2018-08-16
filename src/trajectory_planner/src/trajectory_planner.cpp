@@ -37,8 +37,8 @@
 #include <ewok/uniform_bspline_3d_optimization.h>
 
 
-static const int POW = 6;
-//static const int N = (1 << POW);
+static const uint8_t POW = 6;
+static const uint8_t subsample = 4;
 static const double dt = 0.5;
 static const int num_opt_points = 7;
 static const double max_velocity = 0.8;
@@ -50,6 +50,8 @@ bool ringbufferActive = false;
 bool ringbufferInitialized = false;
 bool setpointActive = false;
 bool setpointInitialized = false;
+bool encodingInitialized = false;
+bool encodingFloat = false;
 
 ros::Subscriber local_pos_sub;
 ros::Subscriber endpoint_pos_sub;
@@ -72,11 +74,11 @@ tf::TransformListener * listener;
 
 void ewok_cmd_cb(const std_msgs::String::ConstPtr& msg)
 {
-  if (msg->data == "s")
+  if(msg->data == "s")
   {
     ringbufferActive = true;
   }
-  if (msg->data == "r")
+  if(msg->data == "r")
   {
     ringbufferActive = false;
     setpointActive = false;
@@ -126,23 +128,30 @@ void endpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
 
 void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
 {
-  if (ringbufferActive)
+  if(!encodingInitialized)
   {
-    cv_bridge::CvImageConstPtr cv_ptr;
-    try
+    if(msg->encoding == "32FC1")
     {
-      cv_ptr = cv_bridge::toCvShare(msg);
+      encodingFloat = true;
+      ROS_INFO("Depth image encoding: 32FC1");
     }
-    catch (cv_bridge::Exception& e)
+    else if(msg->encoding == "16UC1")
     {
-      ROS_ERROR("cv_bridge exception: %s", e.what());
-      return;
+      encodingFloat = false;
+      ROS_INFO("Depth image encoding: 16UC1");
     }
-
-    const float fx = 457.815979003906;
-    const float fy = 457.815979003906;
-    const float cx = 249.322647094727;
-    const float cy = 179.5;
+    else
+    {
+      ROS_INFO("Couldn't get encoding");
+    }
+    encodingInitialized = true;
+  }
+  if(ringbufferActive)
+  {
+    static const float fx = 457.815979003906;
+    static const float fy = 457.815979003906;
+    static const float cx = 249.322647094727;
+    static const float cy = 179.5;
 
     tf::StampedTransform transform;
 
@@ -162,24 +171,27 @@ void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
 
     Eigen::Affine3f T_w_c = dT_w_c.cast<float>();
 
-    uint16_t * data = (uint16_t *) cv_ptr->image.data;
-
     //auto t1 = std::chrono::high_resolution_clock::now();
 
     ewok::EuclideanDistanceRingBuffer<POW>::PointCloud cloud1;
 
-    for(int u=0; u < cv_ptr->image.cols; u+=4)
+    for(int v=0; v < msg->height; v+=subsample)
     {
-      for(int v=0; v < cv_ptr->image.rows; v+=4)
+      for(int u=0; u < msg->width; u+=subsample)
       {
-        uint16_t uval = data[v*cv_ptr->image.cols + u];
-
-        //uval = ((uval & 0x00FF) << 8)| ((uval & 0xFF00) >> 8);
-        //ROS_INFO_STREAM(uval);
-
-        if(uval > 0)
+        float val;
+        if(encodingFloat)
         {
-          float val = uval/5000.0;
+          val = *(float *)&msg->data[(v*msg->width + u)*4];
+        }
+        else
+        {
+          uint16_t uval = *(uint16_t *)&msg->data[(v*msg->width + u)*2];
+          val = uval/1000.0; //Depth data is represented in mm
+        }
+
+        if(std::isfinite(val) && val > 0.05)
+        {
           Eigen::Vector4f p;
           p[0] = val*(u - cx)/fx;
           p[1] = val*(v - cy)/fy;
@@ -228,7 +240,6 @@ void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
 
     //ROS_INFO_STREAM("cloud1 size: " << cloud1.size());
 
-
     //auto t3 = std::chrono::high_resolution_clock::now();
 
     edrb->insertPointCloud(cloud1, origin);
@@ -242,7 +253,6 @@ void depth_cam_cb(const sensor_msgs::Image::ConstPtr& msg)
     visualization_msgs::Marker m_occ, m_free;
     edrb->getMarkerOccupied(m_occ);
     edrb->getMarkerFree(m_free);
-
 
     occ_marker_pub.publish(m_occ);
     free_marker_pub.publish(m_free);
@@ -264,8 +274,7 @@ void publishSetpoint(const ros::TimerEvent& e)
 {
   if(setpointActive)
   {
-    ROS_INFO("Publish: %f %f %f",
-             setpoint_pos_ENU.pose.position.x, setpoint_pos_ENU.pose.position.y, setpoint_pos_ENU.pose.position.z);
+    //ROS_INFO("Publish: %f %f %f", setpoint_pos_ENU.pose.position.x, setpoint_pos_ENU.pose.position.y, setpoint_pos_ENU.pose.position.z);
     setpoint_pos_pub.publish(setpoint_pos_ENU);
 
     ros::spinOnce();
@@ -281,7 +290,7 @@ int main(int argc, char** argv)
   endpoint_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/trajectory/endpoint_position", 10, endpoint_position_cb);
   ewok_cmd_sub = nh.subscribe<std_msgs::String>("/trajectory/command", 10, ewok_cmd_cb);
 
-  while (!ringbufferActive)
+  while(!ringbufferActive)
   {
     ros::spinOnce();
     ros::Duration(0.05).sleep();
@@ -300,14 +309,13 @@ int main(int argc, char** argv)
   setpoint_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/trajectory/setpoint_position", 10);
 
   edrb.reset(new ewok::EuclideanDistanceRingBuffer<POW>(resolution, 1.0));
-  //ewok::EuclideanDistanceRingBuffer<POW>::PointCloud cloud;
 
   // The setpoint publishing rate MUST be faster than 2Hz
   ros::Timer timer = nh.createTimer(ros::Duration(0.05), publishSetpoint);
 
   // Trigger callback functions at the following rate
   ros::Rate r(dt);
-  while (ros::ok())
+  while(ros::ok())
   {
     ros::spinOnce();
 
@@ -318,7 +326,7 @@ int main(int argc, char** argv)
     visualization_msgs::MarkerArray traj_marker;
 
     //auto t2 = std::chrono::high_resolution_clock::now();
-    if (setpointActive)
+    if(setpointActive)
     {
       spline_optimization->optimize();
       //auto t3 = std::chrono::high_resolution_clock::now();
