@@ -53,7 +53,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Image
       Enabled: true
-      Image Topic: /camera/rgb/image_rect_color
+      Image Topic: /camera/rgb/image_raw
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -108,50 +108,6 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        firefly/base_link:
-          Value: true
-        firefly/base_link_inertia:
-          Value: false
-        firefly/bracket:
-          Value: false
-        firefly/bracket_end_left:
-          Value: false
-        firefly/bracket_end_right:
-          Value: false
-        firefly/camera:
-          Value: false
-        firefly/camera_depth_frame:
-          Value: false
-        firefly/camera_depth_optical_frame:
-          Value: false
-        firefly/camera_rgb_frame:
-          Value: false
-        firefly/camera_rgb_optical_frame:
-          Value: false
-        firefly/imu_link:
-          Value: false
-        firefly/imugt_link:
-          Value: false
-        firefly/odometry_sensor1:
-          Value: false
-        firefly/odometry_sensor1_link:
-          Value: false
-        firefly/odometry_sensorgt_link:
-          Value: false
-        firefly/rotor_0:
-          Value: false
-        firefly/rotor_1:
-          Value: false
-        firefly/rotor_2:
-          Value: false
-        firefly/rotor_3:
-          Value: false
-        firefly/rotor_4:
-          Value: false
-        firefly/rotor_5:
-          Value: false
-        world:
-          Value: false
       Marker Scale: 1
       Name: TF
       Show Arrows: true
@@ -159,42 +115,12 @@ Visualization Manager:
       Show Names: true
       Tree:
         world:
-          firefly/base_link:
-            firefly/base_link_inertia:
+          drone:
+            camera:
               {}
-            firefly/bracket_end_right:
-              firefly/bracket:
-                firefly/bracket_end_left:
-                  {}
-                firefly/camera:
-                  firefly/camera_rgb_frame:
-                    firefly/camera_depth_frame:
-                      firefly/camera_depth_optical_frame:
-                        {}
-                    firefly/camera_rgb_optical_frame:
-                      {}
-            firefly/imu_link:
+            marker:
+              target_position:
               {}
-            firefly/imugt_link:
-              {}
-            firefly/odometry_sensor1_link:
-              {}
-            firefly/odometry_sensorgt_link:
-              {}
-            firefly/rotor_0:
-              {}
-            firefly/rotor_1:
-              {}
-            firefly/rotor_2:
-              {}
-            firefly/rotor_3:
-              {}
-            firefly/rotor_4:
-              {}
-            firefly/rotor_5:
-              {}
-          firefly/odometry_sensor1:
-            {}
       Update Interval: 0
       Value: true
     - Class: rviz/Axes
