@@ -274,6 +274,7 @@ void publishSetpoint(const ros::TimerEvent& e)
 {
   if(setpointActive)
   {
+    setpoint_pos_ENU.pose.orientation = endpoint_position.pose.orientation;
     //ROS_INFO("Publish: %f %f %f", setpoint_pos_ENU.pose.position.x, setpoint_pos_ENU.pose.position.y, setpoint_pos_ENU.pose.position.z);
     setpoint_pos_pub.publish(setpoint_pos_ENU);
 

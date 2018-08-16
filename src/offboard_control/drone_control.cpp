@@ -68,7 +68,7 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
   transformStamped_.header.frame_id = "marker";
   transformStamped_.child_frame_id = "target_position";
   if(close_enough_ > (SAFETY_TIME_SEC * ROS_RATE) || ros_client_->avoidCollision_)
-    transformStamped_.transform.translation.x = -0.5; //The target is 0.5 m in front of the marker if the drone is close enough or collision avoidance is active
+    transformStamped_.transform.translation.x = -0.4; //The target is 0.4 m in front of the marker if the drone is close enough or collision avoidance is active
   else
     transformStamped_.transform.translation.x = -target_distance;
   transformStamped_.transform.translation.y = 0;
@@ -101,8 +101,8 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
 
       if(cnt % 66 == 0)
       {
-        ROS_INFO("Endpoint position: E: %f, N: %f, U: %f", transformStamped_.transform.translation.x,
-                transformStamped_.transform.translation.y, transformStamped_.transform.translation.z);
+        ROS_INFO("Endpoint position: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
+                transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, yaw);
       }
       cnt++;
     }
@@ -661,8 +661,8 @@ void DroneControl::approachMarker()
     rate_->sleep();
   }
 
-  // Publish final setpoint for 4 seconds before landing
-  for(int i = 0; ros::ok() && i < 4 * ROS_RATE; ++i)
+  // Publish final setpoint for 3 seconds before landing
+  for(int i = 0; ros::ok() && i < 3 * ROS_RATE; ++i)
   {
     ros_client_->setpoint_pos_pub_.publish(endpoint_pos_ENU_);
     ros::spinOnce();
