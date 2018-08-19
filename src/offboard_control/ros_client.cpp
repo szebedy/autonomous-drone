@@ -15,6 +15,8 @@ ROSClient::ROSClient(int &argc, char **argv)
 {
   ros::init(argc, argv, "offboard_ctrl");
   this->nh_ = new ros::NodeHandle();
+
+  avoidCollision_ = false;
 }
 
 void ROSClient::init(DroneControl *const drone_control)
@@ -23,11 +25,13 @@ void ROSClient::init(DroneControl *const drone_control)
   marker_pos_sub_ = nh_->subscribe<geometry_msgs::PoseArray>("/whycon/poses", 10, &DroneControl::marker_position_cb, drone_control);
   local_pos_sub_ = nh_->subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, &DroneControl::local_position_cb, drone_control);
   svo_pos_sub_ = nh_->subscribe<geometry_msgs::PoseWithCovarianceStamped>("/svo/pose_imu", 10, &DroneControl::svo_position_cb, drone_control);
-  depth_cam_sub_ = nh_->subscribe<sensor_msgs::Image>("/camera/depth/image_raw", 10, &ROSClient::depth_cam_cb, this);
+  setpoint_pos_sub_ = nh_->subscribe<geometry_msgs::PoseStamped>("/trajectory/setpoint_position", 10, &DroneControl::setpoint_position_cb, drone_control);
 
   setpoint_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
+  endpoint_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/trajectory/endpoint_position", 10);
   vision_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);
   svo_cmd_pub_ = nh_->advertise<std_msgs::String>("/svo/remote_key", 10);
+  ewok_cmd_pub_ = nh_->advertise<std_msgs::String>("/trajectory/command", 10);
 
   arming_client_ = nh_->serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
   land_client_ = nh_->serviceClient<mavros_msgs::CommandTOL>("/mavros/cmd/land");
@@ -40,23 +44,15 @@ void ROSClient::init(DroneControl *const drone_control)
   //nh_->setParam("/mavros/local_position/tf/send", true);
 }
 
-void ROSClient::depth_cam_cb(const sensor_msgs::Image::ConstPtr &msg)
+void ROSClient::publishTrajectoryEndpoint(const geometry_msgs::PoseStamped &setpoint_pos_ENU)
 {
-  if (collision_avoid_.avoid_)
+  if(avoidCollision_)
   {
-    depth_cam_img_ = *msg;
-  }
-}
-
-void ROSClient::publishSetpoint(const geometry_msgs::PoseStamped &setpoint_pos_ENU)
-{
-  if (collision_avoid_.avoid_)
-  {
-    collision_avoid_.avoid(setpoint_pos_ENU, depth_cam_img_);
+    endpoint_pos_pub_.publish(setpoint_pos_ENU);
+    ros::spinOnce();
   }
   else
   {
-    setpoint_pos_pub_.publish(setpoint_pos_ENU);
-    ros::spinOnce();
+    ROS_INFO("Collision avoidance has not been enabled");
   }
 }

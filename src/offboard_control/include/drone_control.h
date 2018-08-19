@@ -37,7 +37,8 @@ class DroneControl
     static constexpr float TEST_FLIGHT_DURATION = 3.0; //In seconds per side
     static constexpr float TEST_FLIGHT_LENGTH = 4.0;   //In meters
     static constexpr int   TEST_FLIGHT_REPEAT = 2;     //Times
-    static constexpr bool  KEEP_ALIVE = false;
+    static constexpr bool  KEEP_ALIVE = true;
+    static constexpr bool  USE_MARKER_ORIENTATION = false;
 
     // The setpoint publishing rate MUST be faster than 2Hz
     ros::Rate *rate_;
@@ -52,6 +53,7 @@ class DroneControl
     void state_cb(const mavros_msgs::State::ConstPtr &msg);
     void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &msg);
     void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
+    void setpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
     void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg);
 
     void offboardMode();
@@ -61,6 +63,8 @@ class DroneControl
     void initVIO();
     void vioOff();
     void vioOn();
+    void collisionAvoidOff();
+    void collisionAvoidOn();
     void turnTowardsMarker();
     void approachMarker();
     void hover(int seconds);
@@ -69,11 +73,14 @@ class DroneControl
 
   private:
     bool approaching_ = false;
+    bool endpoint_active_ = false;
     bool send_vision_estimate_ = true;
     bool svo_running_ = false;
+    bool cam_tf_init_ = false;
     unsigned char close_enough_ = 0;
 
     geometry_msgs::PoseStamped setpoint_pos_ENU_;
+    geometry_msgs::PoseStamped endpoint_pos_ENU_;
     geometry_msgs::PoseStamped vision_pos_ENU_;
     geometry_msgs::PoseStamped gps_init_pos_;
     geometry_msgs::PoseStamped svo_init_pos_;
@@ -83,6 +90,7 @@ class DroneControl
 
     mavros_msgs::CommandBool arm_cmd_;
     std_msgs::String svo_cmd_;
+    std_msgs::String ewok_cmd_;
 
     ROSClient *ros_client_;
 

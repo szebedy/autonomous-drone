@@ -26,7 +26,10 @@ source ~/.bashrc
 sudo apt install ros-kinetic-mavros ros-kinetic-mavros-extras
 sudo /opt/ros/kinetic/lib/mavros/install_geographiclib_datasets.sh
 ```
-
+Install additional dependencies for collision avoidance:
+```
+sudo apt-get install libeigen3-dev libsuitesparse-dev protobuf-compiler libnlopt-dev ros-kinetic-octomap ros-kinetic-octomap-rviz-plugins ros-kinetic-octomap-ros ros-kinetic-sophus
+```
 ## Download and run PX4 Gazebo simulator
 Prepare tools for building PX4
 ```

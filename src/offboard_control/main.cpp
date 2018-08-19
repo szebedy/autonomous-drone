@@ -20,6 +20,8 @@ int main(int argc, char **argv)
 
   //drone_control.initVIO();
 
+  drone_control.collisionAvoidOn();
+
   //drone_control.testFlightHorizontal();
   //drone_control.testFlightVertical();
 

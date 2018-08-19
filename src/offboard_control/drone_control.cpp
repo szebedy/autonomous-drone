@@ -27,52 +27,84 @@ void DroneControl::state_cb(const mavros_msgs::State::ConstPtr &msg)
 void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &msg)
 {
   marker_position_ = *msg;
+  static int cnt = 0;
 
   static tf2_ros::TransformBroadcaster br;
 
   // Transformation from drone to visual marker
-  transformStamped_.header.stamp = ros::Time::now();
+  transformStamped_.header.stamp = marker_position_.header.stamp;
   transformStamped_.header.frame_id = "drone";
   transformStamped_.child_frame_id = "marker";
   transformStamped_.transform.translation.x = marker_position_.poses[0].position.z;
   transformStamped_.transform.translation.y = -marker_position_.poses[0].position.x;
   transformStamped_.transform.translation.z = -marker_position_.poses[0].position.y;
-  tf2::Quaternion q;
-  q.setRPY(0, 0, 0);
-  transformStamped_.transform.rotation.x = q.x();
-  transformStamped_.transform.rotation.y = q.y();
-  transformStamped_.transform.rotation.z = q.z();
-  transformStamped_.transform.rotation.w = q.w();
+  if(USE_MARKER_ORIENTATION)
+  {
+      // Calculate yaw difference between drone and marker orientation
+      double roll, pitch, yaw;
+      tf::Quaternion q(marker_position_.poses[0].orientation.x,
+                       marker_position_.poses[0].orientation.y,
+                       marker_position_.poses[0].orientation.z,
+                       marker_position_.poses[0].orientation.w);
+      tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+      if(yaw < -M_PI/2) yaw += M_PI;
+      else if(yaw > M_PI/2) yaw -= M_PI;
+      //else if(yaw < -3*M_PI/2) yaw += 2*M_PI;
+      //else if(yaw > 3*M_PI/2) yaw -= 2*M_PI;
+      transformStamped_.transform.rotation = tf::createQuaternionMsgFromYaw(yaw);
+  }
+  else
+  {
+    float rad = -atan2f(marker_position_.poses[0].position.x, marker_position_.poses[0].position.z);
+    transformStamped_.transform.rotation = tf::createQuaternionMsgFromYaw(rad);
+  }
   br.sendTransform(transformStamped_);
 
   float target_distance = marker_position_.poses[0].position.z/4; // Target distance is proportional to horizontal distance
-  if (target_distance < 1) target_distance = 1; // Minimum of 1 meter
+  if(target_distance < 1) target_distance = 1; // Minimum of 1 meter
 
   // Transformation from visual marker to target position
-  transformStamped_.header.stamp = ros::Time::now();
+  transformStamped_.header.stamp = marker_position_.header.stamp;
   transformStamped_.header.frame_id = "marker";
   transformStamped_.child_frame_id = "target_position";
-  if (close_enough_ > (SAFETY_TIME_SEC * ROS_RATE))
-    transformStamped_.transform.translation.x = -0.6; //The target is 0.6 m in front of the marker if the drone is close enough
+  if(close_enough_ > (SAFETY_TIME_SEC * ROS_RATE) || ros_client_->avoidCollision_)
+    transformStamped_.transform.translation.x = -0.4; //The target is 0.4 m in front of the marker if the drone is close enough or collision avoidance is active
   else
     transformStamped_.transform.translation.x = -target_distance;
   transformStamped_.transform.translation.y = 0;
   transformStamped_.transform.translation.z = 0;
-  transformStamped_.transform.rotation = marker_position_.poses[0].orientation;
+  transformStamped_.transform.rotation.x = 0;
+  transformStamped_.transform.rotation.y = 0;
+  transformStamped_.transform.rotation.z = 0;
+  transformStamped_.transform.rotation.w = 1;
   br.sendTransform(transformStamped_);
 
-  if (approaching_)
+  if(approaching_)
   {
     try
     {
-      transformStamped_ = tfBuffer_.lookupTransform("map", "target_position", ros::Time(0));
-      setpoint_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x;
-      setpoint_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y;
-      setpoint_pos_ENU_.pose.position.z = transformStamped_.transform.translation.z;
-      //setpoint_pos_ENU.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
+      transformStamped_ = tfBuffer_.lookupTransform("world", "target_position", ros::Time(0));
 
-      ROS_INFO("Setpoint position: E: %f, N: %f, U: %f", transformStamped_.transform.translation.x,
-               transformStamped_.transform.translation.y, transformStamped_.transform.translation.z);
+      endpoint_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x;
+      endpoint_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y;
+      endpoint_pos_ENU_.pose.position.z = transformStamped_.transform.translation.z;
+      //Calculate orientation
+      double roll, pitch, yaw;
+      tf::Quaternion q(transformStamped_.transform.rotation.x,
+                       transformStamped_.transform.rotation.y,
+                       transformStamped_.transform.rotation.z,
+                       transformStamped_.transform.rotation.w);
+      tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+      endpoint_pos_ENU_.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+
+      endpoint_active_ = true;
+
+      if(cnt % 66 == 0)
+      {
+        ROS_INFO("Endpoint position: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
+                transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, yaw);
+      }
+      cnt++;
     }
     catch (tf2::TransformException &ex)
     {
@@ -87,24 +119,47 @@ void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr 
   static int cnt = 0;
 
   static tf2_ros::TransformBroadcaster br;
+  static tf2_ros::StaticTransformBroadcaster sbr;
 
-  // Transformation from map to drone
-  transformStamped_.header.stamp = ros::Time::now();
-  transformStamped_.header.frame_id = "map";
+  // Transformation from world to drone
+  transformStamped_.header.stamp = local_position_.header.stamp;
+  transformStamped_.header.frame_id = "world";
   transformStamped_.child_frame_id = "drone";
   transformStamped_.transform.translation.x = local_position_.pose.position.x;
   transformStamped_.transform.translation.y = local_position_.pose.position.y;
   transformStamped_.transform.translation.z = local_position_.pose.position.z;
   transformStamped_.transform.rotation = local_position_.pose.orientation;
+  br.sendTransform(transformStamped_);
+
+  if(!cam_tf_init_)
+  {
+    // Transformation from drone to camera
+    transformStamped_.header.stamp = ros::Time::now();
+    transformStamped_.header.frame_id = "drone";
+    transformStamped_.child_frame_id = "camera";
+    transformStamped_.transform.translation.x = 0.1;
+    transformStamped_.transform.translation.y = 0;
+    transformStamped_.transform.translation.z = 0;
+    transformStamped_.transform.rotation.x = -0.5;
+    transformStamped_.transform.rotation.y = 0.5;
+    transformStamped_.transform.rotation.z = -0.5;
+    transformStamped_.transform.rotation.w = 0.5;
+    sbr.sendTransform(transformStamped_);
+
+    cam_tf_init_ = true;
+  }
 
   cnt++;
-  if (cnt % 100 == 0) \
+  if(cnt % 100 == 0)
   {
     ROS_INFO("Mavros local position: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
              transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, currentYaw());
   }
+}
 
-  br.sendTransform(transformStamped_);
+void DroneControl::setpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
+{
+  if(endpoint_active_) setpoint_pos_ENU_ = *msg;
 }
 
 void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg)
@@ -115,10 +170,10 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
   static tf2_ros::TransformBroadcaster br;
   static tf2_ros::StaticTransformBroadcaster sbr;
 
-  if (ros::Time::now() - last_svo_estimate_ > ros::Duration(1.0))
+  if(ros::Time::now() - last_svo_estimate_ > ros::Duration(1.0))
   {
     // svo_position is the first pose message after initialization/recovery, need to set svo_init_pos
-    if (ros::Time::now() - local_position_.header.stamp < ros::Duration(1.0))
+    if(ros::Time::now() - local_position_.header.stamp < ros::Duration(1.0))
     {
       ROS_INFO("svo_init_pos = local_position");
       svo_init_pos_ = local_position_;
@@ -135,9 +190,9 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
       svo_init_pos_.pose.orientation.w = 1;
     }
 
-    // Transformation from map to svo_init
-    transformStamped_.header.stamp = ros::Time::now();
-    transformStamped_.header.frame_id = "map";
+    // Transformation from world to svo_init
+    transformStamped_.header.stamp = svo_position_.header.stamp;
+    transformStamped_.header.frame_id = "world";
     transformStamped_.child_frame_id = "svo_init";
     transformStamped_.transform.translation.x = svo_init_pos_.pose.position.x;
     transformStamped_.transform.translation.y = svo_init_pos_.pose.position.y;
@@ -148,7 +203,7 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
   }
 
   // Transformation from svo_init to drone_vision
-  transformStamped_.header.stamp = last_svo_estimate_ = ros::Time::now();
+  transformStamped_.header.stamp = last_svo_estimate_ = svo_position_.header.stamp;
   transformStamped_.header.frame_id = "svo_init";
   transformStamped_.child_frame_id = "drone_vision";
   transformStamped_.transform.translation.x = svo_position_.pose.pose.position.x;
@@ -158,24 +213,23 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
 
   br.sendTransform(transformStamped_);
 
-  if (send_vision_estimate_)
+  if(send_vision_estimate_)
   {
     try
     {
       // Send vision position estimate to mavros
-      transformStamped_ = tfBuffer_.lookupTransform("map", "drone_vision", ros::Time(0));
-      vision_pos_ENU_.header.stamp = ros::Time::now();
-      vision_pos_ENU_.header.frame_id = "map";
+      transformStamped_ = tfBuffer_.lookupTransform("world", "drone_vision", ros::Time(0));
+      vision_pos_ENU_.header.stamp = svo_position_.header.stamp;
+      vision_pos_ENU_.header.frame_id = "world";
       vision_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x;
       vision_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y;
       vision_pos_ENU_.pose.position.z = transformStamped_.transform.translation.z;
       vision_pos_ENU_.pose.orientation = transformStamped_.transform.rotation;
 
       ros_client_->vision_pos_pub_.publish(vision_pos_ENU_);
-      ros::spinOnce();
 
       cnt++;
-      if (cnt % 66 == 0)
+      if(cnt % 66 == 0)
       {
         double roll, pitch, yaw;
         tf::Quaternion q(vision_pos_ENU_.pose.orientation.x,
@@ -208,28 +262,31 @@ void DroneControl::offboardMode()
 
   last_svo_estimate_ = ros::Time::now(); //TODO this is error prone
 
-  if (ros::Time::now() - local_position_.header.stamp < ros::Duration(1.0)) {
-      ROS_INFO("Local_position available");
-  } else {
-      ROS_INFO("Local_position not available, initializing to 0");
-      local_position_.header.stamp = ros::Time::now();
-      local_position_.header.frame_id = "map";
-      local_position_.pose.position.x = 0;
-      local_position_.pose.position.y = 0;
-      local_position_.pose.position.z = 0;
-      local_position_.pose.orientation.x = 0;
-      local_position_.pose.orientation.y = 0;
-      local_position_.pose.orientation.z = 0;
-      local_position_.pose.orientation.w = 1;
+  if(ros::Time::now() - local_position_.header.stamp < ros::Duration(1.0))
+  {
+    ROS_INFO("Local_position available");
+  }
+  else
+  {
+    ROS_INFO("Local_position not available, initializing to 0");
+    local_position_.header.stamp = ros::Time::now();
+    local_position_.header.frame_id = "world";
+    local_position_.pose.position.x = 0;
+    local_position_.pose.position.y = 0;
+    local_position_.pose.position.z = 0;
+    local_position_.pose.orientation.x = 0;
+    local_position_.pose.orientation.y = 0;
+    local_position_.pose.orientation.z = 0;
+    local_position_.pose.orientation.w = 1;
   }
 
   setpoint_pos_ENU_ = gps_init_pos_ = local_position_;
 
-
   // Send a few setpoints before starting, otherwise px4 will not switch to OFFBOARD mode
   for(int i = 20; ros::ok() && i > 0; --i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -245,7 +302,7 @@ void DroneControl::offboardMode()
   {
     if( current_state_.mode != "OFFBOARD" && (ros::Time::now() - last_request_ > ros::Duration(5.0)))
     {
-      ROS_INFO(current_state_.mode.c_str());
+      ROS_INFO("%s",current_state_.mode.c_str());
       if( ros_client_->set_mode_client_.call(offb_set_mode) && offb_set_mode.response.mode_sent)
       {
         ROS_INFO("Offboard enabled");
@@ -263,7 +320,8 @@ void DroneControl::offboardMode()
         last_request_ = ros::Time::now();
       }
     }
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -300,6 +358,30 @@ void DroneControl::vioOn()
   return;
 }
 
+void DroneControl::collisionAvoidOff()
+{
+  ROS_INFO("Disabling collision avoidance");
+
+  ros_client_->avoidCollision_ = false;
+
+  ewok_cmd_.data = "r";
+  ros_client_->ewok_cmd_pub_.publish(ewok_cmd_);
+
+  return;
+}
+
+void DroneControl::collisionAvoidOn()
+{
+  ROS_INFO("Starting collision avoidance");
+
+  ros_client_->avoidCollision_ = true;
+
+  ewok_cmd_.data = "s";
+  ros_client_->ewok_cmd_pub_.publish(ewok_cmd_);
+
+  return;
+}
+
 void DroneControl::takeOff()
 {
   ROS_INFO("Taking off. Current position: N: %f, W: %f, U: %f", local_position_.pose.position.x,
@@ -312,7 +394,8 @@ void DroneControl::takeOff()
   ROS_INFO("Taking off");
   for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
   ROS_INFO("Takeoff finished! Looking for whycon marker");
@@ -333,7 +416,8 @@ void DroneControl::initVIO()
 
       setpoint_pos_ENU_.pose.position.x += INIT_FLIGHT_LENGTH/INIT_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < INIT_FLIGHT_DURATION * ROS_RATE
@@ -342,12 +426,13 @@ void DroneControl::initVIO()
 
       setpoint_pos_ENU_.pose.position.x -= INIT_FLIGHT_LENGTH/INIT_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
   }
 
-  if (ros::Time::now() - last_svo_estimate_ < ros::Duration(1.0))
+  if(ros::Time::now() - last_svo_estimate_ < ros::Duration(1.0))
   {
     ROS_INFO("SVO initialized successfully");
     svo_running_ = true;
@@ -361,7 +446,8 @@ void DroneControl::initVIO()
   ROS_INFO("Back to takeoff position");
   for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -379,28 +465,32 @@ void DroneControl::testFlightHorizontal()
     {
       setpoint_pos_ENU_.pose.position.x += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.y += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.x -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.y -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
   }
@@ -416,28 +506,32 @@ void DroneControl::testFlightVertical()
     {
       setpoint_pos_ENU_.pose.position.x += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.z += TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.x -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
     for(int i = 0; ros::ok() && i < TEST_FLIGHT_DURATION * ROS_RATE; ++i)
     {
       setpoint_pos_ENU_.pose.position.z -= TEST_FLIGHT_LENGTH/TEST_FLIGHT_DURATION/ROS_RATE;
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+      ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+      ros::spinOnce();
       rate_->sleep();
     }
   }
@@ -451,7 +545,8 @@ void DroneControl::hover(int seconds)
            setpoint_pos_ENU_.pose.position.z);
   for(int i = 0; ros::ok() && i < 15 * ROS_RATE; ++i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -471,11 +566,11 @@ void DroneControl::turnTowardsMarker()
   {
     current_yaw = currentYaw();
 
-    if (ros::Time::now() - marker_position_.header.stamp < ros::Duration(1.0))
+    if(ros::Time::now() - marker_position_.header.stamp < ros::Duration(1.0))
     {
       // Calculate yaw angle difference of marker in radians
       rad = -atan2f(marker_position_.poses[0].position.x, marker_position_.poses[0].position.z);
-      if (fabs(rad) < 0.1)
+      if(fabs(rad) < 0.1)
       {
         ROS_INFO("Headed towards marker!");
         break;
@@ -489,14 +584,16 @@ void DroneControl::turnTowardsMarker()
       ROS_INFO("No marker was found in the last second, turning around");
       setpoint_pos_ENU_.pose.orientation = tf::createQuaternionMsgFromYaw(current_yaw+TURN_STEP_RAD);
     }
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
   // Send setpoint for 2 seconds
   for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -510,25 +607,56 @@ void DroneControl::approachMarker()
   // TODO: handle after MAX_ATTEMPTS
   for(int j = 0; ros::ok() && j < MAX_ATTEMPTS; ++j)
   {
-    if (ros::Time::now() - marker_position_.header.stamp < ros::Duration(1.0))
+    if(ros::Time::now() - marker_position_.header.stamp < ros::Duration(1.0))
     {
-      if (marker_position_.poses[0].position.z < 1.5)
+      if(ros_client_->avoidCollision_)
       {
-        close_enough_++;
-        // TODO: Changing orientation. Calulate yaw from marker orientation
-
-        if (close_enough_ > (SAFETY_TIME_SEC * ROS_RATE))
+        while(!endpoint_active_)
         {
-          ROS_INFO("Close enough");
-          break; // Exit loop and fly to final target
+          ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+          ros::spinOnce();
+          rate_->sleep();
         }
+        ros_client_->publishTrajectoryEndpoint(endpoint_pos_ENU_);
+
+        static tf::Point current_endpoint, estimate_endpoint;
+        tf::pointMsgToTF(endpoint_pos_ENU_.pose.position, current_endpoint);
+
+        while(marker_position_.poses[0].position.z > 0.6)
+        {
+          ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+          ros::spinOnce();
+          tf::pointMsgToTF(endpoint_pos_ENU_.pose.position, estimate_endpoint);
+          if(current_endpoint.distance(estimate_endpoint) > marker_position_.poses[0].position.z/6.0)
+          {
+            ros_client_->publishTrajectoryEndpoint(endpoint_pos_ENU_);
+            tf::pointMsgToTF(endpoint_pos_ENU_.pose.position, current_endpoint);
+          }
+          rate_->sleep();
+        }
+        ROS_INFO("Close enough");
+        break; // Exit loop and fly to final target
       }
-      else {close_enough_ = 0;}
+      else
+      {
+        if(marker_position_.poses[0].position.z < 1.5)
+        {
+          close_enough_++;
+          // TODO: Changing orientation. Calulate yaw from marker orientation
 
-      ros_client_->publishSetpoint(setpoint_pos_ENU_);
+          if(close_enough_ > (SAFETY_TIME_SEC * ROS_RATE))
+          {
+            ROS_INFO("Close enough");
+            break; // Exit loop and fly to final target
+          }
+        }
+        else {close_enough_ = 0;}
 
-      approaching_ = true;
+        ros_client_->setpoint_pos_pub_.publish(endpoint_pos_ENU_);
+        ros::spinOnce();
 
+        approaching_ = true;
+      }
     }
     else
     {
@@ -539,10 +667,11 @@ void DroneControl::approachMarker()
     rate_->sleep();
   }
 
-  // Publish final setpoint for 4 seconds before landing
-  for(int i = 0; ros::ok() && i < 4 * ROS_RATE; ++i)
+  // Publish final setpoint for 3 seconds before landing
+  for(int i = 0; ros::ok() && i < 3 * ROS_RATE; ++i)
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(endpoint_pos_ENU_);
+    ros::spinOnce();
     rate_->sleep();
   }
 
@@ -556,14 +685,15 @@ void DroneControl::land()
 {
   mavros_msgs::CommandTOL land_cmd;
   land_cmd.request.yaw = 0;
-  land_cmd.request.latitude = 0;
-  land_cmd.request.longitude = 0;
+  land_cmd.request.latitude = NAN; //Land at current location
+  land_cmd.request.longitude = NAN;
   land_cmd.request.altitude = 0;
 
   ROS_INFO("Trying to land");
-  while (!(ros_client_->land_client_.call(land_cmd) && land_cmd.response.success))
+  while(!(ros_client_->land_client_.call(land_cmd) && land_cmd.response.success))
   {
-    ros_client_->publishSetpoint(setpoint_pos_ENU_);
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
     ROS_INFO("Retrying to land");
     rate_->sleep();
   }
