@@ -302,7 +302,7 @@ void DroneControl::offboardMode()
   {
     if( current_state_.mode != "OFFBOARD" && (ros::Time::now() - last_request_ > ros::Duration(5.0)))
     {
-      ROS_INFO(current_state_.mode.c_str());
+      ROS_INFO("%s",current_state_.mode.c_str());
       if( ros_client_->set_mode_client_.call(offb_set_mode) && offb_set_mode.response.mode_sent)
       {
         ROS_INFO("Offboard enabled");
@@ -627,7 +627,7 @@ void DroneControl::approachMarker()
           ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
           ros::spinOnce();
           tf::pointMsgToTF(endpoint_pos_ENU_.pose.position, estimate_endpoint);
-          if(current_endpoint.distance(estimate_endpoint) > marker_position_.poses[0].position.z/5.0)
+          if(current_endpoint.distance(estimate_endpoint) > marker_position_.poses[0].position.z/6.0)
           {
             ros_client_->publishTrajectoryEndpoint(endpoint_pos_ENU_);
             tf::pointMsgToTF(endpoint_pos_ENU_.pose.position, current_endpoint);
@@ -685,8 +685,8 @@ void DroneControl::land()
 {
   mavros_msgs::CommandTOL land_cmd;
   land_cmd.request.yaw = 0;
-  land_cmd.request.latitude = 0;
-  land_cmd.request.longitude = 0;
+  land_cmd.request.latitude = NAN; //Land at current location
+  land_cmd.request.longitude = NAN;
   land_cmd.request.altitude = 0;
 
   ROS_INFO("Trying to land");
