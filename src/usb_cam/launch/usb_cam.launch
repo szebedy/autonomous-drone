@@ -4,7 +4,7 @@
     <param name="image_width" value="640" />
     <param name="image_height" value="480" />
     <param name="pixel_format" value="grey" />
-    <param name="camera_frame_id" value="usb_cam" />
+    <param name="camera_frame_id" value="camera_mono_optical_frame" />
     <param name="io_method" value="userptr"/>
     <param name="sunny_weather" value="false"/>
   </node>

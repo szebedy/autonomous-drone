@@ -109,7 +109,7 @@ Terminal 2:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
-rosrun whycon whycon camera/image_rect_color:=/camera/rgb/image_rect_color camera/camera_info:=/camera/rgb/camera_info _targets:=1 _inner_diameter:=0.09 _outer_diameter:=0.217
+rosrun whycon whycon camera/image_rect_color:=/camera/rgb/image_raw camera/camera_info:=/camera/rgb/camera_info _targets:=1 _inner_diameter:=0.08 _outer_diameter:=0.1952
 ```
 Terminal 3:
 ```
