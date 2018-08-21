@@ -346,12 +346,10 @@ void DroneControl::vioOff()
   ROS_INFO("Disabling SVO");
 
   svo_cmd_.data = "r";
-  for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i)
-  {
-    ros_client_->svo_cmd_pub_.publish(svo_cmd_);
-    ros::spinOnce();
-    rate_->sleep();
-  }
+
+  ros_client_->svo_cmd_pub_.publish(svo_cmd_);
+  ros::spinOnce();
+  rate_->sleep();
 
   return;
 }
@@ -363,12 +361,10 @@ void DroneControl::vioOn()
   ROS_INFO("Starting SVO at height %f", height);
 
   svo_cmd_.data = "s";
-  for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i)
-  {
-    ros_client_->svo_cmd_pub_.publish(svo_cmd_);
-    ros::spinOnce();
-    rate_->sleep();
-  }
+
+  ros_client_->svo_cmd_pub_.publish(svo_cmd_);
+  ros::spinOnce();
+  rate_->sleep();
 
   return;
 }
@@ -598,8 +594,32 @@ void DroneControl::hover(int seconds)
            setpoint_pos_ENU_.pose.position.x,
            setpoint_pos_ENU_.pose.position.y,
            setpoint_pos_ENU_.pose.position.z);
+
   for(int i = 0; ros::ok() && i < 15 * ROS_RATE; ++i)
   {
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
+    rate_->sleep();
+  }
+
+  return;
+}
+
+void DroneControl::scanBuilding()
+{
+  int cnt = 0;
+  geometry_msgs::PoseStamped current_endpoint = local_position_;
+
+  current_endpoint.pose.position.z = SAFETY_ALTITUDE_VIO;
+
+  ROS_INFO("Scanning building");
+
+  ros_client_->publishTrajectoryEndpoint(current_endpoint);
+
+  while(ros::ok() && cnt < 2 * ROS_RATE)
+  {
+    if(distance(current_endpoint, local_position_) > 0.5) cnt++;
+
     ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
     ros::spinOnce();
     rate_->sleep();

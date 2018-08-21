@@ -24,12 +24,11 @@ int main(int argc, char **argv)
 
   drone_control.collisionAvoidOn();
 
-  //drone_control.testFlightHorizontal();
-  //drone_control.testFlightVertical();
-
-  //drone_control.hover(10);
+  drone_control.scanBuilding();
 
   drone_control.turnTowardsMarker();
+
+  //drone_control.hover(10);
 
   drone_control.approachMarker();
 
