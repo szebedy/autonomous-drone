@@ -18,7 +18,9 @@ int main(int argc, char **argv)
 
   drone_control.takeOff();
 
-  //drone_control.initVIO();
+  //drone_control.flyToGlobal(47.397728, 8.546135, 550, 0); //Above simulated apartment
+  drone_control.flyToLocal(38, -1, DroneControl::SAFETY_ALTITUDE_GPS, 1.5708);
+  drone_control.initVIO();
 
   drone_control.collisionAvoidOn();
 
@@ -34,7 +36,7 @@ int main(int argc, char **argv)
   drone_control.land();
   drone_control.disarm();
 
-  while(ros::ok() && drone_control.KEEP_ALIVE)
+  while(ros::ok() && DroneControl::KEEP_ALIVE)
   {
     ros::spinOnce();
     drone_control.rate_->sleep();

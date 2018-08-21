@@ -5,10 +5,12 @@
 #include <mavros_msgs/CommandTOL.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
+#include <mavros_msgs/GlobalPositionTarget.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <sensor_msgs/NavSatFix.h>
 #include <std_msgs/String.h>
 
 ROSClient::ROSClient(int &argc, char **argv)
@@ -24,9 +26,11 @@ void ROSClient::init(DroneControl *const drone_control)
   state_sub_ = nh_->subscribe<mavros_msgs::State>("/mavros/state", 10, &DroneControl::state_cb, drone_control);
   marker_pos_sub_ = nh_->subscribe<geometry_msgs::PoseArray>("/whycon/poses", 10, &DroneControl::marker_position_cb, drone_control);
   local_pos_sub_ = nh_->subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, &DroneControl::local_position_cb, drone_control);
+  global_pos_sub_ = nh_->subscribe<sensor_msgs::NavSatFix>("/mavros/global_position/global", 10, &DroneControl::global_position_cb, drone_control);
   svo_pos_sub_ = nh_->subscribe<geometry_msgs::PoseWithCovarianceStamped>("/svo/pose_imu", 10, &DroneControl::svo_position_cb, drone_control);
   setpoint_pos_sub_ = nh_->subscribe<geometry_msgs::PoseStamped>("/trajectory/setpoint_position", 10, &DroneControl::setpoint_position_cb, drone_control);
 
+  global_setpoint_pos_pub_ = nh_->advertise<mavros_msgs::GlobalPositionTarget>("/mavros/setpoint_position/global", 10);
   setpoint_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
   endpoint_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/trajectory/endpoint_position", 10);
   vision_pos_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);

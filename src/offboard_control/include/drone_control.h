@@ -17,6 +17,7 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <sensor_msgs/NavSatFix.h>
 #include <tf2_ros/transform_listener.h>
 
 class ROSClient; // Forward declaration because of circular reference
@@ -26,7 +27,9 @@ class DroneControl
   public:
     DroneControl(ROSClient *ros_client);
 
-    static constexpr float FLIGHT_ALTITUDE = 0.5;
+    static constexpr float TAKEOFF_ALTITUDE = 1.5;
+    static constexpr float SAFETY_ALTITUDE_GPS = 15.0;
+    static constexpr float SAFETY_ALTITUDE_VIO = 2.0;
     static constexpr float ROS_RATE = 20.0;
     static constexpr int   MAX_ATTEMPTS = 300;
     static constexpr int   SAFETY_TIME_SEC = 3;
@@ -39,6 +42,8 @@ class DroneControl
     static constexpr int   TEST_FLIGHT_REPEAT = 2;     //Times
     static constexpr bool  KEEP_ALIVE = true;
     static constexpr bool  USE_MARKER_ORIENTATION = false;
+    static constexpr double LAT_DEG_TO_M = 111000.0;
+    static constexpr double LON_DEG_TO_M = 75000.0;
 
     // The setpoint publishing rate MUST be faster than 2Hz
     ros::Rate *rate_;
@@ -47,12 +52,14 @@ class DroneControl
     mavros_msgs::State current_state_;
     geometry_msgs::PoseArray marker_position_;
     geometry_msgs::PoseStamped local_position_;
+    sensor_msgs::NavSatFix global_position_;
     geometry_msgs::PoseWithCovarianceStamped svo_position_;
     geometry_msgs::TransformStamped transformStamped_;
 
     void state_cb(const mavros_msgs::State::ConstPtr &msg);
     void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &msg);
     void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
+    void global_position_cb(const sensor_msgs::NavSatFix::ConstPtr &msg);
     void setpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
     void svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg);
 
@@ -60,6 +67,8 @@ class DroneControl
     void takeOff();
     void testFlightHorizontal();
     void testFlightVertical();
+    void flyToGlobal(double latitude, double longitude, float altitude, float yaw);
+    void flyToLocal(double x, double y, double z, float yaw);
     void initVIO();
     void vioOff();
     void vioOn();
@@ -95,6 +104,7 @@ class DroneControl
     ROSClient *ros_client_;
 
     float currentYaw();
+    double distance(const geometry_msgs::PoseStamped &p1, const geometry_msgs::PoseStamped &p2);
 };
 
 
