@@ -291,19 +291,19 @@ int main(int argc, char** argv)
   endpoint_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/trajectory/endpoint_position", 10, endpoint_position_cb);
   ewok_cmd_sub = nh.subscribe<std_msgs::String>("/trajectory/command", 10, ewok_cmd_cb);
 
+  listener = new tf::TransformListener;
+
+  occ_marker_pub = nh.advertise<visualization_msgs::Marker>("/ring_buffer/occupied", 5);
+  free_marker_pub = nh.advertise<visualization_msgs::Marker>("/ring_buffer/free", 5);
+  dist_marker_pub = nh.advertise<visualization_msgs::Marker>("/ring_buffer/distance", 5);
+  traj_marker_pub = nh.advertise<visualization_msgs::MarkerArray>("/global_trajectory", 1, true);
+  current_traj_marker_pub = nh.advertise<visualization_msgs::MarkerArray>("/optimal_trajectory", 1, true);
+
   while(!ringbufferActive)
   {
     ros::spinOnce();
     ros::Duration(0.05).sleep();
   }
-
-  listener = new tf::TransformListener;
-
-  occ_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/occupied", 5);
-  free_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/free", 5);
-  dist_marker_pub = nh.advertise<visualization_msgs::Marker>("ring_buffer/distance", 5);
-  traj_marker_pub = nh.advertise<visualization_msgs::MarkerArray>("global_trajectory", 1, true);
-  current_traj_marker_pub = nh.advertise<visualization_msgs::MarkerArray>("optimal_trajectory", 1, true);
 
   depth_cam_sub = nh.subscribe<sensor_msgs::Image>("/camera/depth/image_raw", 1, depth_cam_cb);
 
