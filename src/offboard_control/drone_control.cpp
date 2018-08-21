@@ -147,6 +147,7 @@ void DroneControl::local_position_cb(const geometry_msgs::PoseStamped::ConstPtr 
     transformStamped_.transform.rotation.w = 0.5;
     sbr.sendTransform(transformStamped_);
 
+    ROS_INFO("Drone to camera transform initialized");
     cam_tf_init_ = true;
   }
 
@@ -172,7 +173,8 @@ void DroneControl::global_position_cb(const sensor_msgs::NavSatFix::ConstPtr &ms
 
 void DroneControl::setpoint_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
-  if(endpoint_active_) setpoint_pos_ENU_ = *msg;
+  if(approaching_ && !endpoint_active_) return;
+  else setpoint_pos_ENU_ = *msg;
 }
 
 void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg)
@@ -409,7 +411,7 @@ void DroneControl::takeOff()
     ros::spinOnce();
     rate_->sleep();
   }
-  ROS_INFO("Takeoff finished! Looking for whycon marker");
+  ROS_INFO("Takeoff finished!");
   return;
 }
 
@@ -618,7 +620,7 @@ void DroneControl::scanBuilding()
 
   while(ros::ok() && cnt < 2 * ROS_RATE)
   {
-    if(distance(current_endpoint, local_position_) > 0.5) cnt++;
+    if(distance(current_endpoint, local_position_) < 0.5) cnt++;
 
     ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
     ros::spinOnce();
