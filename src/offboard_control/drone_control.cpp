@@ -358,7 +358,9 @@ void DroneControl::vioOff()
 
 void DroneControl::vioOn()
 {
-  ROS_INFO("Starting SVO");
+  double height = local_position_.pose.position.z;
+  ros_client_->setParam("/svo/map_scale", height);
+  ROS_INFO("Starting SVO at height %f", height);
 
   svo_cmd_.data = "s";
   for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i)

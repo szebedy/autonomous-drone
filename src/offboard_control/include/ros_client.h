@@ -34,6 +34,7 @@ class ROSClient
     ros::ServiceClient set_mode_client_;
 
     void publishTrajectoryEndpoint(const geometry_msgs::PoseStamped& setpoint_pos_ENU);
+    void setParam(const std::string &key, double d);
 
     bool avoidCollision_;
 

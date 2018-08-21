@@ -60,3 +60,8 @@ void ROSClient::publishTrajectoryEndpoint(const geometry_msgs::PoseStamped &setp
     ROS_INFO("Collision avoidance has not been enabled");
   }
 }
+
+void ROSClient::setParam(const std::string &key, double d)
+{
+  nh_->setParam(key, d);
+}
