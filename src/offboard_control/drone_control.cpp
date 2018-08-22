@@ -50,12 +50,12 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
   }
   else
   {
-    float rad = -atan2f(marker_position_.poses[0].position.x, marker_position_.poses[0].position.z);
+    double rad = -atan2f(marker_position_.poses[0].position.x, marker_position_.poses[0].position.z);
     transformStamped_.transform.rotation = tf::createQuaternionMsgFromYaw(rad);
   }
   br.sendTransform(transformStamped_);
 
-  float target_distance = marker_position_.poses[0].position.z/4; // Target distance is proportional to horizontal distance
+  double target_distance = marker_position_.poses[0].position.z/4; // Target distance is proportional to horizontal distance
   if(target_distance < 1) target_distance = 1; // Minimum of 1 meter
 
   // Transformation from visual marker to target position
@@ -176,7 +176,7 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
   if(ros::Time::now() - last_svo_estimate_ > ros::Duration(1.0))
   {
     // svo_position is the first pose message after initialization/recovery, need to set svo_init_pos
-    if(ros::Time::now() - local_position_.header.stamp < ros::Duration(1.0))
+    if(ros::Time::now() - local_position_.header.stamp < ros::Duration(0.5))
     {
       ROS_INFO("svo_init_pos = local_position");
       svo_init_pos_ = local_position_;
@@ -347,15 +347,18 @@ void DroneControl::vioOff()
 
 void DroneControl::vioOn()
 {
-  double height = local_position_.pose.position.z;
-  ros_client_->setParam("/svo/map_scale", height);
-  ROS_INFO("Starting SVO at height %f", height);
+  //double height = local_position_.pose.position.z;
+  //ros_client_->setParam("/svo/map_scale", height); //TODO: this is not having any effect, parameter is probably read at startup
+  //ROS_INFO("Starting SVO at height %f", height);
+  //ros::spinOnce();
+  //hover(5.0); //Wait fot the parameter change to be processed
+
+  ROS_INFO("Starting SVO");
 
   svo_cmd_.data = "s";
 
   ros_client_->svo_cmd_pub_.publish(svo_cmd_);
   ros::spinOnce();
-  rate_->sleep();
 
   return;
 }
@@ -526,7 +529,7 @@ void DroneControl::testFlightVertical()
   }
 }
 
-void DroneControl::flyToGlobal(double latitude, double longitude, float altitude, float yaw)
+void DroneControl::flyToGlobal(double latitude, double longitude, double altitude, double yaw)
 {
   mavros_msgs::GlobalPositionTarget target;
   target.coordinate_frame = mavros_msgs::GlobalPositionTarget::FRAME_GLOBAL_INT;
@@ -554,7 +557,7 @@ void DroneControl::flyToGlobal(double latitude, double longitude, float altitude
   }
 }
 
-void DroneControl::flyToLocal(double x, double y, double z, float yaw)
+void DroneControl::flyToLocal(double x, double y, double z, double yaw)
 {
   if(!std::isfinite(yaw))
   {
@@ -575,8 +578,8 @@ void DroneControl::flyToLocal(double x, double y, double z, float yaw)
     rate_->sleep();
   }
 
-  //Publish for another 2 seconds
-  for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i)
+  //Publish for another second
+  for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i)
   {
     ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
     ros::spinOnce();
@@ -613,7 +616,7 @@ void DroneControl::scanBuilding()
   current_endpoint.pose.position.z = SAFETY_ALTITUDE_VIO;
   scanUntil(current_endpoint);
 
-  //Fly 2 m to the left
+  //Fly 2 m to the right
   current_endpoint.pose.position.x += 2.0*sin(yaw);
   current_endpoint.pose.position.y -= 2.0*cos(yaw);
   scanUntil(current_endpoint);
@@ -622,7 +625,7 @@ void DroneControl::scanBuilding()
   current_endpoint.pose.position.z = SAFETY_ALTITUDE_GPS;
   scanUntil(current_endpoint);
 
-  //Fly 4 m to the right
+  //Fly 4 m to the left
   current_endpoint.pose.position.x -= 4.0*sin(yaw);
   current_endpoint.pose.position.y += 4.0*cos(yaw);
   scanUntil(current_endpoint);
@@ -656,9 +659,54 @@ void DroneControl::scanUntil(const geometry_msgs::PoseStamped &endpoint)
   }
 }
 
+void DroneControl::centerMarker()
+{
+  // Center the marker without change of orientation
+  int cnt = 0;
+  double yaw = currentYaw();
+  double verticalDistance = marker_position_.poses[0].position.z;
+
+  try
+  {
+    transformStamped_ = tfBuffer_.lookupTransform("world", "marker", ros::Time(0));
+
+    endpoint_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x - verticalDistance*cos(yaw);
+    endpoint_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y - verticalDistance*sin(yaw);
+    endpoint_pos_ENU_.pose.position.z = transformStamped_.transform.translation.z;
+    endpoint_pos_ENU_.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+    ROS_INFO("Center marker at: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
+            transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, yaw);
+  }
+  catch (tf2::TransformException &ex)
+  {
+    ROS_ERROR("%s",ex.what());
+  }
+
+  ros_client_->publishTrajectoryEndpoint(endpoint_pos_ENU_);
+
+  while(ros::ok() && cnt < 2 * ROS_RATE)
+  {
+    if(distance(endpoint_pos_ENU_, local_position_) < 0.5) cnt++;
+
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
+    rate_->sleep();
+  }
+
+  // Send setpoint for 2 seconds
+  for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i)
+  {
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
+    rate_->sleep();
+  }
+
+  return;
+}
+
 void DroneControl::turnTowardsMarker()
 {
-  float rad, current_yaw;
+  double rad, current_yaw;
 
   // Turn towards the marker without change of position
   setpoint_pos_ENU_ = local_position_;

@@ -18,14 +18,14 @@ int main(int argc, char **argv)
 
   drone_control.takeOff();
 
-  drone_control.flyToLocal(0.0, 0.0, DroneControl::SAFETY_ALTITUDE_GPS);
+  drone_control.flyToLocal(-10.0, 5.0, DroneControl::SAFETY_ALTITUDE_GPS);
   drone_control.initVIO();
 
   drone_control.collisionAvoidOn();
 
   drone_control.scanBuilding();
 
-  drone_control.turnTowardsMarker();
+  drone_control.centerMarker();
 
   //drone_control.hover(10);
 

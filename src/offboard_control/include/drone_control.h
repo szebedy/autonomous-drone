@@ -68,8 +68,8 @@ class DroneControl
     void takeOff();
     void testFlightHorizontal();
     void testFlightVertical();
-    void flyToGlobal(double latitude, double longitude, float altitude, float yaw);
-    void flyToLocal(double x, double y, double z, float yaw = NAN);
+    void flyToGlobal(double latitude, double longitude, double altitude, double yaw);
+    void flyToLocal(double x, double y, double z, double yaw = NAN);
     void initVIO();
     void vioOff();
     void vioOn();
@@ -77,6 +77,7 @@ class DroneControl
     void collisionAvoidOn();
     void scanBuilding();
     void scanUntil(const geometry_msgs::PoseStamped &endpoint);
+    void centerMarker();
     void turnTowardsMarker();
     void approachMarker();
     void hover(double seconds);
