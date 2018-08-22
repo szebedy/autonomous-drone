@@ -7,7 +7,6 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
-#include <math.h>
 
 DroneControl::DroneControl(ROSClient *ros_client)
 {
@@ -42,12 +41,7 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
   if(USE_MARKER_ORIENTATION)
   {
       // Calculate yaw difference between drone and marker orientation
-      double roll, pitch, yaw;
-      tf::Quaternion q(marker_position_.poses[0].orientation.x,
-                       marker_position_.poses[0].orientation.y,
-                       marker_position_.poses[0].orientation.z,
-                       marker_position_.poses[0].orientation.w);
-      tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+      double yaw = getYaw(marker_position_.poses[0].orientation);
       if(yaw < -M_PI/2) yaw += M_PI;
       else if(yaw > M_PI/2) yaw -= M_PI;
       //else if(yaw < -3*M_PI/2) yaw += 2*M_PI;
@@ -89,13 +83,7 @@ void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &
       endpoint_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x;
       endpoint_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y;
       endpoint_pos_ENU_.pose.position.z = transformStamped_.transform.translation.z;
-      //Calculate orientation
-      double roll, pitch, yaw;
-      tf::Quaternion q(transformStamped_.transform.rotation.x,
-                       transformStamped_.transform.rotation.y,
-                       transformStamped_.transform.rotation.z,
-                       transformStamped_.transform.rotation.w);
-      tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+      double yaw = getYaw(transformStamped_.transform.rotation);
       endpoint_pos_ENU_.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
 
       endpoint_active_ = true;
@@ -167,7 +155,7 @@ void DroneControl::global_position_cb(const sensor_msgs::NavSatFix::ConstPtr &ms
   cnt++;
   if(cnt % 100 == 0)
   {
-    ROS_INFO("GPS: lat: %f, long: %f, alt: %f", msg->latitude, msg->longitude, msg->altitude);
+    //ROS_INFO("GPS: lat: %f, long: %f, alt: %f", msg->latitude, msg->longitude, msg->altitude);
   }
 }
 
@@ -246,14 +234,8 @@ void DroneControl::svo_position_cb(const geometry_msgs::PoseWithCovarianceStampe
       cnt++;
       if(cnt % 66 == 0)
       {
-        double roll, pitch, yaw;
-        tf::Quaternion q(vision_pos_ENU_.pose.orientation.x,
-                         vision_pos_ENU_.pose.orientation.y,
-                         vision_pos_ENU_.pose.orientation.z,
-                         vision_pos_ENU_.pose.orientation.w);
-        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
         ROS_INFO("Vision position lookup: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
-                 transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, (float)yaw);
+                 transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, getYaw(transformStamped_.transform.rotation));
       }
     }
     catch (tf2::TransformException &ex)
@@ -271,6 +253,13 @@ void DroneControl::offboardMode()
     ros::spinOnce();
     rate_->sleep();
     ROS_INFO("connecting to FCU...");
+  }
+
+  // Wait for ROS
+  for(int i = 0; ros::ok() && i < 4 * ROS_RATE; ++i)
+  {
+    ros::spinOnce();
+    rate_->sleep();
   }
 
   ROS_INFO("Switching to OFFBOARD mode");
@@ -567,7 +556,12 @@ void DroneControl::flyToGlobal(double latitude, double longitude, float altitude
 
 void DroneControl::flyToLocal(double x, double y, double z, float yaw)
 {
-  ROS_INFO("Flying to local coordinates E: %f, N: %f, U: %f, yaw: %f", x, y, z, yaw);
+  if(!std::isfinite(yaw))
+  {
+    yaw = currentYaw();
+    ROS_INFO("Flying to local coordinates E: %f, N: %f, U: %f, current yaw: %f", x, y, z, yaw);
+  }
+  else ROS_INFO("Flying to local coordinates E: %f, N: %f, U: %f, yaw: %f", x, y, z, yaw);
 
   setpoint_pos_ENU_.pose.position.x = x;
   setpoint_pos_ENU_.pose.position.y = y;
@@ -590,9 +584,9 @@ void DroneControl::flyToLocal(double x, double y, double z, float yaw)
   }
 }
 
-void DroneControl::hover(int seconds)
+void DroneControl::hover(double seconds)
 {
-  ROS_INFO("Hovering for %i seconds in position: E: %f, N: %f, U: %f", seconds,
+  ROS_INFO("Hovering for %f seconds in position: E: %f, N: %f, U: %f", seconds,
            setpoint_pos_ENU_.pose.position.x,
            setpoint_pos_ENU_.pose.position.y,
            setpoint_pos_ENU_.pose.position.z);
@@ -609,25 +603,57 @@ void DroneControl::hover(int seconds)
 
 void DroneControl::scanBuilding()
 {
-  int cnt = 0;
+  ROS_INFO("Scanning building");
+  double yaw = currentYaw();
+
+  marker_found_ = false;
   geometry_msgs::PoseStamped current_endpoint = local_position_;
 
+  //Fly down
   current_endpoint.pose.position.z = SAFETY_ALTITUDE_VIO;
+  scanUntil(current_endpoint);
 
-  ROS_INFO("Scanning building");
+  //Fly 2 m to the left
+  current_endpoint.pose.position.x += 2.0*sin(yaw);
+  current_endpoint.pose.position.y -= 2.0*cos(yaw);
+  scanUntil(current_endpoint);
 
-  ros_client_->publishTrajectoryEndpoint(current_endpoint);
+  //Fly up
+  current_endpoint.pose.position.z = SAFETY_ALTITUDE_GPS;
+  scanUntil(current_endpoint);
 
-  while(ros::ok() && cnt < 2 * ROS_RATE)
+  //Fly 4 m to the right
+  current_endpoint.pose.position.x -= 4.0*sin(yaw);
+  current_endpoint.pose.position.y += 4.0*cos(yaw);
+  scanUntil(current_endpoint);
+
+  //Fly down
+  current_endpoint.pose.position.z = SAFETY_ALTITUDE_VIO;
+  scanUntil(current_endpoint);
+
+  return;
+}
+
+void DroneControl::scanUntil(const geometry_msgs::PoseStamped &endpoint)
+{
+  int cnt = 0;
+  bool marker_found = false;
+
+  ros_client_->publishTrajectoryEndpoint(endpoint);
+
+  while(ros::ok() && cnt < 2 * ROS_RATE && !marker_found)
   {
-    if(distance(current_endpoint, local_position_) < 0.5) cnt++;
+    if(distance(endpoint, local_position_) < 0.5) cnt++;
 
     ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
     ros::spinOnce();
     rate_->sleep();
-  }
 
-  return;
+    if(ros::Time::now() - marker_position_.header.stamp < ros::Duration(0.5))
+    {
+      marker_found = true;
+    }
+  }
 }
 
 void DroneControl::turnTowardsMarker()
@@ -801,14 +827,25 @@ void DroneControl::disarm()
   return;
 }
 
-float DroneControl::currentYaw()
+double DroneControl::currentYaw()
 {
   //Calculate yaw current orientation
   double roll, pitch, yaw;
-  tf::Quaternion q(local_position_.pose.orientation.x,
-                   local_position_.pose.orientation.y,
-                   local_position_.pose.orientation.z,
-                   local_position_.pose.orientation.w);
+  tf::Quaternion q;
+
+  tf::quaternionMsgToTF(local_position_.pose.orientation, q);
+  tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+
+  return yaw;
+}
+
+double DroneControl::getYaw(const geometry_msgs::Quaternion &msg)
+{
+  //Calculate yaw current orientation
+  double roll, pitch, yaw;
+  tf::Quaternion q;
+
+  tf::quaternionMsgToTF(msg, q);
   tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
 
   return yaw;

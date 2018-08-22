@@ -19,6 +19,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <tf2_ros/transform_listener.h>
+#include <math.h>
 
 class ROSClient; // Forward declaration because of circular reference
 
@@ -68,16 +69,17 @@ class DroneControl
     void testFlightHorizontal();
     void testFlightVertical();
     void flyToGlobal(double latitude, double longitude, float altitude, float yaw);
-    void flyToLocal(double x, double y, double z, float yaw);
+    void flyToLocal(double x, double y, double z, float yaw = NAN);
     void initVIO();
     void vioOff();
     void vioOn();
     void collisionAvoidOff();
     void collisionAvoidOn();
     void scanBuilding();
+    void scanUntil(const geometry_msgs::PoseStamped &endpoint);
     void turnTowardsMarker();
     void approachMarker();
-    void hover(int seconds);
+    void hover(double seconds);
     void land();
     void disarm();
 
@@ -88,6 +90,7 @@ class DroneControl
     bool svo_running_ = false;
     bool cam_tf_init_ = false;
     unsigned char close_enough_ = 0;
+    bool marker_found_ = false;
 
     geometry_msgs::PoseStamped setpoint_pos_ENU_;
     geometry_msgs::PoseStamped endpoint_pos_ENU_;
@@ -104,7 +107,8 @@ class DroneControl
 
     ROSClient *ros_client_;
 
-    float currentYaw();
+    double currentYaw();
+    double getYaw(const geometry_msgs::Quaternion &msg);
     double distance(const geometry_msgs::PoseStamped &p1, const geometry_msgs::PoseStamped &p2);
 };
 
