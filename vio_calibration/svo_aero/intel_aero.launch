@@ -17,7 +17,7 @@
   </node>
 
   <!-- RVIZ + SVO GUI -->
-  <node name="vis" pkg="rviz" type="rviz" args=" -d $(find svo_ros)/rviz_config.rviz" /> 
+  <!--node name="vis" pkg="rviz" type="rviz" args=" -d $(find svo_ros)/rviz_config.rviz" /--> 
   <node name="svo_gui" pkg="rqt_gui" type="rqt_gui" args="-s rqt_svo.svo.Svo --args --topic svo" />
 
 </launch>

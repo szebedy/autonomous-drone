@@ -13,4 +13,6 @@
   </node>
   <node name="trajectory_planner" type="trajectory_planner" pkg="trajectory_planner" output="screen" />
   <node name="offboard_control" type="offboard_control" pkg="offboard_control" output="screen" />
+  <!-- RVIZ -->
+  <node name="rviz" pkg="rviz" type="rviz" args=" -d $(find trajectory_planner)/rviz/simulation.rviz" /> 
 </launch>
