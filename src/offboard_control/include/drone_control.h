@@ -28,8 +28,8 @@ class DroneControl
   public:
     DroneControl(ROSClient *ros_client);
 
-    static constexpr float TAKEOFF_ALTITUDE = 1.5;
-    static constexpr float SAFETY_ALTITUDE_GPS = 15.0;
+    static constexpr float TAKEOFF_ALTITUDE = 1.0;
+    static constexpr float SAFETY_ALTITUDE_GPS = 10.0;
     static constexpr float SAFETY_ALTITUDE_VIO = 2.0;
     static constexpr float ROS_RATE = 20.0;
     static constexpr int   MAX_ATTEMPTS = 300;
@@ -39,7 +39,7 @@ class DroneControl
     static constexpr float INIT_FLIGHT_LENGTH = 1.0;   //In meters
     static constexpr int   INIT_FLIGHT_REPEAT = 5;     //Times
     static constexpr float TEST_FLIGHT_DURATION = 3.0; //In seconds per side
-    static constexpr float TEST_FLIGHT_LENGTH = 4.0;   //In meters
+    static constexpr float TEST_FLIGHT_LENGTH = 2.0;   //In meters
     static constexpr int   TEST_FLIGHT_REPEAT = 2;     //Times
     static constexpr bool  KEEP_ALIVE = true;
     static constexpr bool  USE_MARKER_ORIENTATION = false;

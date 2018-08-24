@@ -2,7 +2,7 @@ label: "Intel Aero OV7251"
 #id: 412eab8e4058621f7036b5e765dfe812
 cameras:
 - camera:
-    label: usb_cam/image_raw
+    label: /camera/mono/image_raw
 #    id: 54812562fa109c40fe90b29a59dd7798
     line-delay-nanoseconds: 0
     image_height: 480
