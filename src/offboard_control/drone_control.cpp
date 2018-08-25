@@ -272,7 +272,7 @@ void DroneControl::offboardMode()
   }
   else
   {
-    ROS_INFO("Local_position not available, initializing to 0");
+    ROS_WARN("Local_position not available, initializing to 0");
     local_position_.header.stamp = ros::Time::now();
     local_position_.header.frame_id = "world";
     local_position_.pose.position.x = 0;
@@ -639,12 +639,11 @@ void DroneControl::scanBuilding()
 
 void DroneControl::scanUntil(const geometry_msgs::PoseStamped &endpoint)
 {
-  int cnt = 0;
-  bool marker_found = false;
+  int i, cnt = 0;
 
   ros_client_->publishTrajectoryEndpoint(endpoint);
 
-  while(ros::ok() && cnt < 2 * ROS_RATE && !marker_found)
+  for(i = 0; ros::ok() && cnt < 2 * ROS_RATE && !marker_found_ && i < 2*MAX_ATTEMPTS; ++i)
   {
     if(distance(endpoint, local_position_) < 0.5) cnt++;
 
@@ -654,15 +653,16 @@ void DroneControl::scanUntil(const geometry_msgs::PoseStamped &endpoint)
 
     if(ros::Time::now() - marker_position_.header.stamp < ros::Duration(0.5))
     {
-      marker_found = true;
+      marker_found_ = true;
     }
   }
+  if(i == MAX_ATTEMPTS) ROS_WARN("2*MAX_ATTEMPTS reached while scanning building. Aborting.");
 }
 
 void DroneControl::centerMarker()
 {
   // Center the marker without change of orientation
-  int cnt = 0;
+  int i, cnt = 0;
   double yaw = currentYaw();
   double verticalDistance = marker_position_.poses[0].position.z;
 
@@ -674,7 +674,7 @@ void DroneControl::centerMarker()
     endpoint_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y - verticalDistance*sin(yaw);
     endpoint_pos_ENU_.pose.position.z = transformStamped_.transform.translation.z;
     endpoint_pos_ENU_.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
-    ROS_INFO("Center marker at: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
+    ROS_INFO("Centering marker at: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
             transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, yaw);
   }
   catch (tf2::TransformException &ex)
@@ -684,7 +684,7 @@ void DroneControl::centerMarker()
 
   ros_client_->publishTrajectoryEndpoint(endpoint_pos_ENU_);
 
-  while(ros::ok() && cnt < 2 * ROS_RATE)
+  for(i = 0; ros::ok() && cnt < 2 * ROS_RATE && i < MAX_ATTEMPTS; ++i)
   {
     if(distance(endpoint_pos_ENU_, local_position_) < 0.5) cnt++;
 
@@ -692,6 +692,7 @@ void DroneControl::centerMarker()
     ros::spinOnce();
     rate_->sleep();
   }
+  if(i == MAX_ATTEMPTS) ROS_WARN("MAX_ATTEMPTS reached while centering marker. Aborting.");
 
   // Send setpoint for 2 seconds
   for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i)
@@ -751,25 +752,31 @@ void DroneControl::turnTowardsMarker()
 
 void DroneControl::approachMarker()
 {
+  int i, j, cnt = 0;
   approaching_ = true;
 
   // TODO: handle after MAX_ATTEMPTS
-  for(int j = 0; ros::ok() && j < MAX_ATTEMPTS; ++j)
+  for(j = 0; ros::ok() && j < MAX_ATTEMPTS; ++j)
   {
     if(ros::Time::now() - marker_position_.header.stamp < ros::Duration(1.0))
     {
       if(ros_client_->avoidCollision_)
       {
-        while(!endpoint_active_)
+        for(i = 0; ros::ok() && !endpoint_active_ && i < MAX_ATTEMPTS; ++i)
         {
           ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
           ros::spinOnce();
           rate_->sleep();
         }
+        if(i == MAX_ATTEMPTS)
+        {
+          ROS_WARN("MAX_ATTEMPTS reached while waiting for endpoint (while approaching marker). Aborting.");
+          break;
+        }
         ros_client_->publishTrajectoryEndpoint(endpoint_pos_ENU_);
         geometry_msgs::PoseStamped current_endpoint = endpoint_pos_ENU_;
 
-        while(marker_position_.poses[0].position.z > 0.6)
+        for(i = 0; ros::ok() && marker_position_.poses[0].position.z > 0.6 && i < MAX_ATTEMPTS; ++i)
         {
           if(distance(current_endpoint, endpoint_pos_ENU_) > marker_position_.poses[0].position.z/6.0)
           {
@@ -779,6 +786,11 @@ void DroneControl::approachMarker()
           ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
           ros::spinOnce();
           rate_->sleep();
+        }
+        if(i == MAX_ATTEMPTS)
+        {
+          ROS_WARN("MAX_ATTEMPTS reached while approaching marker in collision avoidance mode. Aborting.");
+          break;
         }
         ROS_INFO("Close enough");
         break; // Exit loop and fly to final target
@@ -807,11 +819,13 @@ void DroneControl::approachMarker()
     else
     {
       approaching_ = false;
-      ROS_INFO("No marker was found in the last 1 second");
+      cnt++;
+      if(cnt % 66 == 0) ROS_WARN("No marker was found in the last 1 second");
     }
     ros::spinOnce();
     rate_->sleep();
   }
+  if(j == MAX_ATTEMPTS) ROS_WARN("MAX_ATTEMPTS reached while approaching marker. Aborting.");
 
   // Publish final setpoint for 3 seconds before landing
   for(int i = 0; ros::ok() && i < 3 * ROS_RATE; ++i)
@@ -822,7 +836,7 @@ void DroneControl::approachMarker()
   }
 
   approaching_ = false;
-  ROS_INFO("Marker approached!");
+  if(i < MAX_ATTEMPTS && j < MAX_ATTEMPTS) ROS_INFO("Marker approached!");
 
   return;
 }
@@ -840,13 +854,13 @@ void DroneControl::land()
   {
     ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
     ros::spinOnce();
-    ROS_INFO("Retrying to land");
+    ROS_WARN("Retrying to land");
     rate_->sleep();
   }
   ROS_INFO("Success");
 
-  // Wait 5 second for proper landing
-  for(int i = 0; ros::ok() && i < 5 * ROS_RATE; ++i)
+  // Wait 10 second for proper landing
+  for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i)
   {
     ros::spinOnce();
     rate_->sleep();
