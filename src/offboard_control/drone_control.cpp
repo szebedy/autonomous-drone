@@ -670,12 +670,14 @@ void DroneControl::centerMarker()
   {
     transformStamped_ = tfBuffer_.lookupTransform("world", "marker", ros::Time(0));
 
+    ROS_INFO("Marker is at: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
+            transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, yaw);
     endpoint_pos_ENU_.pose.position.x = transformStamped_.transform.translation.x - verticalDistance*cos(yaw);
     endpoint_pos_ENU_.pose.position.y = transformStamped_.transform.translation.y - verticalDistance*sin(yaw);
     endpoint_pos_ENU_.pose.position.z = transformStamped_.transform.translation.z;
     endpoint_pos_ENU_.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
-    ROS_INFO("Centering marker at: E: %f, N: %f, U: %f, yaw: %f", transformStamped_.transform.translation.x,
-            transformStamped_.transform.translation.y, transformStamped_.transform.translation.z, yaw);
+    ROS_INFO("Centering at: E: %f, N: %f, U: %f, yaw: %f", endpoint_pos_ENU_.pose.position.x,
+            endpoint_pos_ENU_.pose.position.y, endpoint_pos_ENU_.pose.position.z, yaw);
   }
   catch (tf2::TransformException &ex)
   {
