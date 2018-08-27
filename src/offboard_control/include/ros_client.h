@@ -16,6 +16,7 @@ class ROSClient
     void init(DroneControl *const drone_control);
 
     ros::Subscriber state_sub_;
+    ros::Subscriber extended_state_sub_;
     ros::Subscriber marker_pos_sub_;
     ros::Subscriber local_pos_sub_;
     ros::Subscriber global_pos_sub_;

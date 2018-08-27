@@ -12,6 +12,7 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <mavros_msgs/State.h>
+#include <mavros_msgs/ExtendedState.h>
 #include <mavros_msgs/CommandBool.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -58,6 +59,7 @@ class DroneControl
     geometry_msgs::TransformStamped transformStamped_;
 
     void state_cb(const mavros_msgs::State::ConstPtr &msg);
+    void extended_state_cb(const mavros_msgs::ExtendedState::ConstPtr &msg);
     void marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &msg);
     void local_position_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
     void global_position_cb(const sensor_msgs::NavSatFix::ConstPtr &msg);
@@ -90,8 +92,9 @@ class DroneControl
     bool send_vision_estimate_ = true;
     bool svo_running_ = false;
     bool cam_tf_init_ = false;
-    unsigned char close_enough_ = 0;
     bool marker_found_ = false;
+    uint8_t landed_state_ = 0;
+    uint8_t close_enough_ = 0;
 
     geometry_msgs::PoseStamped setpoint_pos_ENU_;
     geometry_msgs::PoseStamped endpoint_pos_ENU_;

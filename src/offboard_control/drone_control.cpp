@@ -24,6 +24,11 @@ void DroneControl::state_cb(const mavros_msgs::State::ConstPtr &msg)
   current_state_ = *msg;
 }
 
+void DroneControl::extended_state_cb(const mavros_msgs::ExtendedState::ConstPtr &msg)
+{
+  landed_state_ = msg->landed_state;
+}
+
 void DroneControl::marker_position_cb(const geometry_msgs::PoseArray::ConstPtr &msg)
 {
   marker_position_ = *msg;
@@ -845,6 +850,7 @@ void DroneControl::approachMarker()
 
 void DroneControl::land()
 {
+  int i;
   mavros_msgs::CommandTOL land_cmd;
   land_cmd.request.yaw = 0;
   land_cmd.request.latitude = NAN; //Land at current location
@@ -859,14 +865,18 @@ void DroneControl::land()
     ROS_WARN("Retrying to land");
     rate_->sleep();
   }
-  ROS_INFO("Success");
 
-  // Wait 10 second for proper landing
-  for(int i = 0; ros::ok() && i < 10 * ROS_RATE; ++i)
+  // Wait until proper landing (or a maximum of 15 seconds)
+  for(i = 0; ros::ok() && landed_state_ != mavros_msgs::ExtendedState::LANDED_STATE_ON_GROUND && i < MAX_ATTEMPTS; ++i)
   {
     ros::spinOnce();
     rate_->sleep();
   }
+  if(i == MAX_ATTEMPTS)
+    ROS_WARN("Landing failed, aborting");
+  else
+    ROS_INFO("Landing success");
+
 
   return;
 }
