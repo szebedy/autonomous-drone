@@ -72,6 +72,7 @@ class DroneControl
     void testFlightVertical();
     void flyToGlobal(double latitude, double longitude, double altitude, double yaw);
     void flyToLocal(double x, double y, double z, double yaw = NAN);
+    void flyToLocalNoCollision(double x, double y, double z);
     void initVIO();
     void vioOff();
     void vioOn();

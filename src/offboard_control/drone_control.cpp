@@ -592,6 +592,29 @@ void DroneControl::flyToLocal(double x, double y, double z, double yaw)
   }
 }
 
+void DroneControl::flyToLocalNoCollision(double x, double y, double z)
+{
+  int i, cnt = 0;
+
+  geometry_msgs::PoseStamped endpoint;
+  endpoint.pose.position.x = x;
+  endpoint.pose.position.y = y;
+  endpoint.pose.position.z = z;
+  endpoint.pose.orientation = tf::createQuaternionMsgFromYaw(currentYaw());
+
+  ros_client_->publishTrajectoryEndpoint(endpoint);
+
+  for(i = 0; ros::ok() && cnt < 2 * ROS_RATE && i < 2*MAX_ATTEMPTS; ++i)
+  {
+    if(distance(endpoint, local_position_) < 0.5) cnt++;
+
+    ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
+    ros::spinOnce();
+    rate_->sleep();
+  }
+  if(i == MAX_ATTEMPTS) ROS_WARN("2*MAX_ATTEMPTS reached while flying to local coordinates. Aborting.");
+}
+
 void DroneControl::hover(double seconds)
 {
   ROS_INFO("Hovering for %f seconds in position: E: %f, N: %f, U: %f", seconds,
