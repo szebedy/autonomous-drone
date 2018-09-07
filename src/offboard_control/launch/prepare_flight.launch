@@ -1,0 +1,14 @@
+<launch>
+  <include file="$(find mavros)/launch/px4.launch">
+    <arg name="fcu_url" value="tcp://127.0.0.1:5760" />
+    <param name="system_id" value="2" />
+  </include>
+  <include file="$(find realsense_camera)/launch/r200_nodelet_rgbd.launch" />
+  <node name="whycon" type="whycon" pkg="whycon" output="screen">
+    <remap from="camera/image_rect_color" to="camera/rgb/image_rect_color" />
+    <remap from="camera/camera_info" to="camera/rgb/camera_info" />
+    <param name="targets" value="1" />
+  </node>
+  <node name="trajectory_planner" type="trajectory_planner" pkg="trajectory_planner" output="screen" /> 
+  <include file="$(find usb_cam)/launch/usb_cam.launch" />
+</launch>

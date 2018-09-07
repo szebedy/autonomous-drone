@@ -1,0 +1,6 @@
+<launch>
+  <node name="offboard_control" type="offboard_control" pkg="offboard_control" output="screen" />
+  <node pkg="rosbag" type="record" name="rosbag_test"
+       args="record -o /home/tik/Documents/ /camera/mono/image_raw /camera/depth/image_raw /whycon/image_out
+                       /ring_buffer/occupied  /global_trajectory /optimal_trajectory /tf /tf_static"/>   
+</launch>

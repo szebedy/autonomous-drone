@@ -11,7 +11,7 @@ quality_min_fts: 40
 # If the number of features reduce by this number for consecutive frames, consider as failure
 quality_max_drop_fts: 80
 
-map_scale: 1.0 #Average scene depth in meters on initialization
+map_scale: 1.5 #Average scene depth in meters on initialization
 kfselect_criterion: FORWARD  #Alterntive: DOWNLOOKING
 kfselect_numkfs_upper_thresh: 180
 # kfselect_numkfs_lower_thresh: 90

@@ -701,8 +701,8 @@ void DroneControl::centerMarker()
   }
   if(i == MAX_ATTEMPTS) ROS_WARN("MAX_ATTEMPTS reached while centering marker. Aborting.");
 
-  // Send setpoint for 2 seconds
-  for(int i = 0; ros::ok() && i < 2 * ROS_RATE; ++i)
+  // Send setpoint for another second
+  for(int i = 0; ros::ok() && i < 1 * ROS_RATE; ++i)
   {
     ros_client_->setpoint_pos_pub_.publish(setpoint_pos_ENU_);
     ros::spinOnce();

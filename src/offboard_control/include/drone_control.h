@@ -31,7 +31,7 @@ class DroneControl
 
     static constexpr float TAKEOFF_ALTITUDE = 1.0;
     static constexpr float SAFETY_ALTITUDE_GPS = 10.0;
-    static constexpr float SAFETY_ALTITUDE_VIO = 2.0;
+    static constexpr float SAFETY_ALTITUDE_VIO = 1.5;
     static constexpr float ROS_RATE = 20.0;
     static constexpr int   MAX_ATTEMPTS = 300;
     static constexpr int   SAFETY_TIME_SEC = 3;
