@@ -1,7 +1,7 @@
 # Description
 
 This repository intends to enable autonomous drone delivery with the Intel Aero RTF drone and PX4 autopilot. The code can be executed both on the real drone or simulated on a PC using Gazebo.
-Its core is a robotic operating system (ROS) node, which communicates with the PX4 autopilot through mavros. It uses SVO 2.0 for visual odometry and whycon for visual marker localization.
+Its core is a robotic operating system (ROS) node, which communicates with the PX4 autopilot through mavros. It uses SVO 2.0 for visual odometry, WhyCon for visual marker localization and Ewok for trajectoy planning with collision avoidance.
 
 # Installation
 ## Install ROS
@@ -94,7 +94,7 @@ roslaunch offboard_control simulation.launch
 ```
 
 ### Run roscore, px4 with mavros, whycon, image_view and offboard_control
-You need to open 5 separate terminals in the root of the repository (Ctrl+Alt+T, 4 x Ctrl+Shift+T)
+You need to open 7 separate terminals in the root of the repository (Ctrl+Alt+T, 6 x Ctrl+Shift+T)
 
 
 Terminal 1:
@@ -127,6 +127,17 @@ cd ~/catkin_ws/
 source ./devel/setup.bash
 rosrun offboard_control offboard_control
 ```
+Terminal 6:
+```
+cd ~/catkin_ws/
+source ./devel/setup.bash
+rosrun trajectory_planner trajectory_planner
+```
+Terminal 7:
+```
+cd ~/catkin_ws/
+rviz -d src/trajectory_planner/rviz/simulation.rviz
+```
 ## Intel Aero RTF drone
 You have two options for launching the code on the Intel Aero RTF drone. You can either launch everything in the same window with a launch file, or you can launch each component separately.
 
@@ -148,7 +159,7 @@ roslaunch offboard_control intel_aero.launch
 ```
 
 ### Run roscore, mavros, whycon and offboard_control
-You need to open 6 separate terminals in the root of the repository (Ctrl+Alt+T, 5 x Ctrl+Shift+T)
+You need to open 7 separate terminals in the root of the repository (Ctrl+Alt+T, 6 x Ctrl+Shift+T)
 
 
 Terminal 1:
@@ -179,6 +190,12 @@ source ./devel/setup.bash
 roslaunch svo_ros intel_aero.launch
 ```
 Terminal 6:
+```
+cd ~/catkin_ws/
+source ./devel/setup.bash
+rosrun trajectory_planner trajectory_planner
+```
+Terminal 7:
 ```
 cd ~/catkin_ws/
 source ./devel/setup.bash
