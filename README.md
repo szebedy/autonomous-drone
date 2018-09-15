@@ -1,7 +1,9 @@
 # Description
 
-This repository intends to enable autonomous drone delivery with the Intel Aero RTF drone and PX4 autopilot. The code can be executed both on the real drone or simulated on a PC using Gazebo.
-Its core is a robotic operating system (ROS) node, which communicates with the PX4 autopilot through mavros. It uses SVO 2.0 for visual odometry, WhyCon for visual marker localization and Ewok for trajectoy planning with collision avoidance.
+This repository intends to enable autonomous drone delivery with the [Intel Aero RTF drone](https://www.intel.com/content/www/us/en/products/drones/aero-ready-to-fly.html) and [PX4](http://px4.io/) autopilot. The code can be executed both on the real drone or simulated on a PC using Gazebo.
+Its core is a robot operating system (ROS) node, which communicates with the PX4 autopilot through [mavros](http://wiki.ros.org/mavros). It uses [SVO 2.0](http://rpg.ifi.uzh.ch/svo2.html) for visual odometry, [WhyCon](https://github.com/lrse/whycon) for visual marker localization and [Ewok](https://github.com/VladyslavUsenko/ewok) for trajectoy planning with collision avoidance.
+## Video
+Coming soon... (but before the 30.09.2018)
 
 # Installation
 ## Install ROS
