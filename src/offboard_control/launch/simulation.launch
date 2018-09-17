@@ -1,6 +1,6 @@
 <launch>
   <include file="$(find px4)/launch/mavros_posix_sitl.launch">
-    <arg name="Y" value="1" />
+    <arg name="Y" value="0" /> <!-- Initial yaw of the spawned drone in radians. Zero means East. -->
   </include>
   <node name="image_view" type="image_view" pkg="image_view" output="screen" >
     <remap from="image" to="/whycon/image_out" />
