@@ -49,7 +49,7 @@ sudo -H pip install pandas jinja2
 Download source files from Github
 ```
 cd
-git clone https://gitlab.ethz.ch/disco-students/fs18/bszebedy.git catkin_ws
+git clone https://github.com/szebedy/autonomous-drone.git catkin_ws
 ```
 ```
 cd ~/catkin_ws
