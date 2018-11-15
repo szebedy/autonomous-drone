@@ -4,13 +4,12 @@ This repository intends to enable autonomous drone delivery with the [Intel Aero
 Its core is a robot operating system (ROS) node, which communicates with the PX4 autopilot through [mavros](http://wiki.ros.org/mavros). It uses [SVO 2.0](http://rpg.ifi.uzh.ch/svo2.html) for visual odometry, [WhyCon](https://github.com/lrse/whycon) for visual marker localization and [Ewok](https://github.com/VladyslavUsenko/ewok) for trajectoy planning with collision avoidance.
 
 ## Paper
-
 A paper describing our system is available here: https://arxiv.org/abs/1809.08022
-
 ## Video
 A video complementing the research paper available here: https://youtu.be/_pWsEVFLKYg
-
 # Installation
+## Prerequisites
+The code in this repository was developed and tested on Ubuntu 16.04. It probably will not work on other operating systems or versions.
 ## Install ROS
 Open a terminal and then copy and paste the following commands into it. (each block can be copied and pasted at once)
 ```
