@@ -59,7 +59,7 @@ Wait until downloading finish correctly, then run
 cd ~/catkin_ws/px4
 make posix_sitl_default gazebo
 ```
-A window will pop up shows a quadcoter. Close the window, go back to the terminal and press Ctrl+C
+A window will pop up showing a quadcoter. Close the window, go back to the terminal and press Ctrl+C
 
 Build this ROS package by
 ```
@@ -74,6 +74,11 @@ source ./devel/setup.bash
 Download the binaries using the following form: http://rpg.ifi.uzh.ch/svo2download.html
 
 Then, extract and install it based on the provided instructions in install.pdf. For consistence with this readme, please name the overlay workspace `~/svo_ws/` instead of `~/svo_install_overlay_ws/`
+
+Finally, copy the calibration and launch files into the build directory of SVO
+```
+cp -r ~/catkin_ws/vio_calibration/svo_aero ~/svo_ws/build/svo_ros/
+```
 
 # Usage
 ## Simulation
