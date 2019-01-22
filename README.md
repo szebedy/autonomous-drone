@@ -77,7 +77,7 @@ Then, extract and install it based on the provided instructions in install.pdf. 
 
 Finally, copy the calibration and launch files into the build directory of SVO
 ```
-cp -r ~/catkin_ws/vio_calibration/svo_aero ~/svo_ws/build/svo_ros/
+cp -r ~/catkin_ws/vio_calibration/svo_aero ~/svo_ws/src/rpg_svo_example/svo_ros/
 ```
 
 # Usage
