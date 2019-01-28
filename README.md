@@ -11,7 +11,7 @@ A video complementing the research paper available here: https://youtu.be/_pWsEV
 ## Prerequisites
 The code in this repository was developed and tested on Ubuntu 16.04. It probably will not work on other operating systems or versions.
 ## Install ROS
-Open a terminal and then copy and paste the following commands into it. (each block can be copied and pasted at once)
+Open a terminal and then copy and paste the following commands into it. Make sure you copy and execute each command line one by one to avoid missing an installation step.
 ```
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
 ```
@@ -28,7 +28,17 @@ rosdep update
 echo "source /opt/ros/kinetic/setup.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
+Download source files from Github
 ```
+cd
+git clone https://github.com/szebedy/autonomous-drone.git catkin_ws
+```
+```
+cd ~/catkin_ws
+git submodule update --init --recursive
+sudo apt install ./ros-kinetic-mavlink_2018.9.17-1_amd64.deb
+```
+``` 
 sudo apt install ros-kinetic-mavros ros-kinetic-mavros-extras
 sudo /opt/ros/kinetic/lib/mavros/install_geographiclib_datasets.sh
 ```
@@ -45,16 +55,7 @@ sudo apt-get install ant protobuf-compiler libeigen3-dev libopencv-dev openjdk-8
 sudo apt-get install python-pip -y
 sudo -H pip install pandas jinja2
 ```
-Download source files from Github
-```
-cd
-git clone https://github.com/szebedy/autonomous-drone.git catkin_ws
-```
-```
-cd ~/catkin_ws
-git submodule update --init --recursive
-```
-Wait until downloading finish correctly, then run
+If all installations were successful, run
 ```
 cd ~/catkin_ws/px4
 make posix_sitl_default gazebo
